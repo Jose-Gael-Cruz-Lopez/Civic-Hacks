@@ -1,66 +1,62 @@
-import sqlite3
 import uuid
 import random
 import string
-from flask import Blueprint, jsonify, request
 
-from config import DATABASE_PATH
+from fastapi import APIRouter, HTTPException, Query
+
+from db.connection import get_conn
+from models import CreateRoomBody, JoinRoomBody, MatchBody
 from services.graph_service import get_graph
 from services.matching_service import find_study_matches
 from services.gemini_service import call_gemini
 
-social_bp = Blueprint("social", __name__)
+router = APIRouter()
 
 
-def get_conn():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-@social_bp.route("/rooms/create", methods=["POST"])
-def create_room():
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
-    room_name = data.get("room_name", "Study Room")
+@router.post("/rooms/create")
+def create_room(body: CreateRoomBody):
     invite_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
     room_id = str(uuid.uuid4())
     conn = get_conn()
     conn.execute(
         "INSERT INTO rooms (id, name, invite_code, created_by) VALUES (?, ?, ?, ?)",
-        (room_id, room_name, invite_code, user_id),
+        (room_id, body.room_name, invite_code, body.user_id),
     )
-    conn.execute("INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room_id, user_id))
+    conn.execute(
+        "INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room_id, body.user_id)
+    )
     conn.commit()
     conn.close()
-    return jsonify({"room_id": room_id, "invite_code": invite_code})
+    return {"room_id": room_id, "invite_code": invite_code}
 
 
-@social_bp.route("/rooms/join", methods=["POST"])
-def join_room():
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
-    invite_code = data.get("invite_code", "").strip().upper()
+@router.post("/rooms/join")
+def join_room(body: JoinRoomBody):
     conn = get_conn()
-    room = conn.execute("SELECT * FROM rooms WHERE invite_code = ?", (invite_code,)).fetchone()
+    room = conn.execute(
+        "SELECT * FROM rooms WHERE invite_code = ?", (body.invite_code.strip().upper(),)
+    ).fetchone()
     if not room:
         conn.close()
-        return jsonify({"error": "Room not found"}), 404
+        raise HTTPException(status_code=404, detail="Room not found")
     room = dict(room)
     existing = conn.execute(
-        "SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?", (room["id"], user_id)
+        "SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?",
+        (room["id"], body.user_id),
     ).fetchone()
     if not existing:
-        conn.execute("INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room["id"], user_id))
+        conn.execute(
+            "INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room["id"], body.user_id)
+        )
         conn.commit()
     member_count = conn.execute(
         "SELECT COUNT(*) as c FROM room_members WHERE room_id = ?", (room["id"],)
     ).fetchone()["c"]
     conn.close()
-    return jsonify({"room": {**room, "member_count": member_count}})
+    return {"room": {**room, "member_count": member_count}}
 
 
-@social_bp.route("/rooms/<user_id>")
+@router.get("/rooms/{user_id}")
 def get_user_rooms(user_id: str):
     conn = get_conn()
     rows = conn.execute(
@@ -73,16 +69,16 @@ def get_user_rooms(user_id: str):
         (user_id,),
     ).fetchall()
     conn.close()
-    return jsonify({"rooms": [dict(r) for r in rows]})
+    return {"rooms": [dict(r) for r in rows]}
 
 
-@social_bp.route("/rooms/<room_id>/overview")
-def room_overview(room_id: str):
+@router.get("/rooms/{room_id}/overview")
+def room_overview(room_id: str, viewer_id: str = Query("user_andres")):
     conn = get_conn()
     room = conn.execute("SELECT * FROM rooms WHERE id = ?", (room_id,)).fetchone()
     if not room:
         conn.close()
-        return jsonify({"error": "Room not found"}), 404
+        raise HTTPException(status_code=404, detail="Room not found")
     members_rows = conn.execute(
         "SELECT u.id, u.name FROM users u JOIN room_members rm ON u.id = rm.user_id WHERE rm.room_id = ?",
         (room_id,),
@@ -91,8 +87,7 @@ def room_overview(room_id: str):
 
     members = []
     for m in members_rows:
-        graph = get_graph(m["id"])
-        members.append({"user_id": m["id"], "name": m["name"], "graph": graph})
+        members.append({"user_id": m["id"], "name": m["name"], "graph": get_graph(m["id"])})
 
     member_summaries = []
     for m in members:
@@ -101,20 +96,20 @@ def room_overview(room_id: str):
         struggling = [n["concept_name"] for n in nodes if n["mastery_tier"] == "struggling"]
         member_summaries.append(f"{m['name']}: mastered {mastered}, struggling with {struggling}")
 
-    summary_prompt = (
-        "Write a 2-3 sentence summary of this study group's collective knowledge:\n"
-        + "\n".join(member_summaries)
-        + "\nFocus on complementary strengths and shared goals."
-    )
     try:
-        ai_summary = call_gemini(summary_prompt)
-    except Exception:
+        ai_summary = call_gemini(
+            "Write a 2-3 sentence summary of this study group's collective knowledge:\n"
+            + "\n".join(member_summaries)
+            + "\nFocus on complementary strengths and shared goals."
+        )
+    except Exception as e:
+        print(f"Gemini summary failed: {e}")
         ai_summary = "This study group has complementary strengths across multiple subjects."
 
-    return jsonify({"room": dict(room), "members": members, "ai_summary": ai_summary})
+    return {"room": dict(room), "members": members, "ai_summary": ai_summary}
 
 
-@social_bp.route("/rooms/<room_id>/activity")
+@router.get("/rooms/{room_id}/activity")
 def room_activity(room_id: str):
     conn = get_conn()
     rows = conn.execute(
@@ -136,22 +131,23 @@ def room_activity(room_id: str):
             "detail": d.get("detail", ""),
             "created_at": d["created_at"],
         })
-    return jsonify({"activities": activities})
+    return {"activities": activities}
 
 
-@social_bp.route("/rooms/<room_id>/match", methods=["POST"])
-def match_partners(room_id: str):
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
+@router.post("/rooms/{room_id}/match")
+def match_partners(room_id: str, body: MatchBody):
     conn = get_conn()
     members_rows = conn.execute(
         "SELECT u.id, u.name FROM users u JOIN room_members rm ON u.id = rm.user_id WHERE rm.room_id = ?",
         (room_id,),
     ).fetchall()
     conn.close()
-    members_with_graphs = []
-    for m in members_rows:
-        graph = get_graph(m["id"])
-        members_with_graphs.append({"user_id": m["id"], "name": m["name"], "graph": graph})
-    matches = find_study_matches(user_id, members_with_graphs)
-    return jsonify({"matches": matches})
+    members_with_graphs = [
+        {"user_id": m["id"], "name": m["name"], "graph": get_graph(m["id"])}
+        for m in members_rows
+    ]
+    try:
+        matches = find_study_matches(body.user_id, members_with_graphs)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
+    return {"matches": matches}

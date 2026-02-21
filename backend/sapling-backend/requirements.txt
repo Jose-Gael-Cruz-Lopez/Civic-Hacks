@@ -1,5 +1,6 @@
-flask
-flask-cors
+fastapi
+uvicorn[standard]
+python-multipart
 google-genai
 google-auth-oauthlib
 google-api-python-client

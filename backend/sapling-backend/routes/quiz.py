@@ -1,24 +1,20 @@
-import sqlite3
 import uuid
 import json
 import os
 from datetime import datetime
-from flask import Blueprint, jsonify, request
 
-from config import DATABASE_PATH, get_mastery_tier
+from fastapi import APIRouter, HTTPException
+
+from config import get_mastery_tier
+from db.connection import get_conn
+from models import GenerateQuizBody, SubmitQuizBody
 from services.gemini_service import call_gemini_json
 from services.graph_service import get_graph
 from services.quiz_context_service import get_quiz_context, save_quiz_context
 
-quiz_bp = Blueprint("quiz", __name__)
+router = APIRouter()
 
 PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
-
-
-def get_conn():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
 
 
 def _load_prompt(name: str) -> str:
@@ -26,69 +22,64 @@ def _load_prompt(name: str) -> str:
         return f.read()
 
 
-@quiz_bp.route("/generate", methods=["POST"])
-def generate_quiz():
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
-    concept_node_id = data.get("concept_node_id")
-    num_questions = int(data.get("num_questions", 5))
-    difficulty = data.get("difficulty", "medium")
-
+@router.post("/generate")
+def generate_quiz(body: GenerateQuizBody):
     conn = get_conn()
-    node = conn.execute("SELECT * FROM graph_nodes WHERE id = ?", (concept_node_id,)).fetchone()
+    node = conn.execute(
+        "SELECT * FROM graph_nodes WHERE id = ?", (body.concept_node_id,)
+    ).fetchone()
     conn.close()
     if not node:
-        return jsonify({"error": "Concept node not found"}), 404
+        raise HTTPException(status_code=404, detail="Concept node not found")
 
     node = dict(node)
-    mastery_pct = int(node["mastery_score"] * 100)
-    graph_data = get_graph(user_id)
-    quiz_ctx = get_quiz_context(user_id, concept_node_id)
+    graph_data = get_graph(body.user_id)
+    quiz_ctx = get_quiz_context(body.user_id, body.concept_node_id)
     quiz_ctx_str = json.dumps(quiz_ctx, indent=2) if quiz_ctx else "No previous quiz history."
 
     prompt = (
         _load_prompt("quiz_generation.txt")
         .replace("{concept_name}", node["concept_name"])
-        .replace("{mastery_score}", str(mastery_pct))
-        .replace("{difficulty}", difficulty)
-        .replace("{num_questions}", str(num_questions))
+        .replace("{mastery_score}", str(int(node["mastery_score"] * 100)))
+        .replace("{difficulty}", body.difficulty)
+        .replace("{num_questions}", str(body.num_questions))
         .replace("{graph_json_subset}", json.dumps(graph_data["nodes"][:10], indent=2))
         .replace("{quiz_context_json}", quiz_ctx_str)
     )
 
-    result = call_gemini_json(prompt)
-    questions = result.get("questions", [])
+    try:
+        result = call_gemini_json(prompt)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
 
+    questions = result.get("questions", [])
     quiz_id = str(uuid.uuid4())
     conn = get_conn()
     conn.execute(
         "INSERT INTO quiz_attempts (id, user_id, concept_node_id, difficulty, questions_json) VALUES (?, ?, ?, ?, ?)",
-        (quiz_id, user_id, concept_node_id, difficulty, json.dumps(questions)),
+        (quiz_id, body.user_id, body.concept_node_id, body.difficulty, json.dumps(questions)),
     )
     conn.commit()
     conn.close()
+    return {"quiz_id": quiz_id, "questions": questions}
 
-    return jsonify({"quiz_id": quiz_id, "questions": questions})
 
-
-@quiz_bp.route("/submit", methods=["POST"])
-def submit_quiz():
-    data = request.get_json()
-    quiz_id = data.get("quiz_id")
-    answers = data.get("answers", [])
-
+@router.post("/submit")
+def submit_quiz(body: SubmitQuizBody):
     conn = get_conn()
-    attempt = conn.execute("SELECT * FROM quiz_attempts WHERE id = ?", (quiz_id,)).fetchone()
+    attempt = conn.execute(
+        "SELECT * FROM quiz_attempts WHERE id = ?", (body.quiz_id,)
+    ).fetchone()
     if not attempt:
         conn.close()
-        return jsonify({"error": "Quiz not found"}), 404
+        raise HTTPException(status_code=404, detail="Quiz not found")
 
     attempt = dict(attempt)
     questions = json.loads(attempt["questions_json"])
     user_id = attempt["user_id"]
     concept_node_id = attempt["concept_node_id"]
 
-    answer_map = {a["question_id"]: a["selected_label"] for a in answers}
+    answer_map = {a.question_id: a.selected_label for a in body.answers}
     results = []
     score = 0
     for q in questions:
@@ -108,10 +99,11 @@ def submit_quiz():
         })
 
     total = len(questions)
-    node = conn.execute("SELECT mastery_score FROM graph_nodes WHERE id = ?", (concept_node_id,)).fetchone()
+    node = conn.execute(
+        "SELECT mastery_score FROM graph_nodes WHERE id = ?", (concept_node_id,)
+    ).fetchone()
     mastery_before = node["mastery_score"] if node else 0.0
-    mastery_delta = (score * 0.03) - ((total - score) * 0.02)
-    mastery_after = max(0.0, min(1.0, mastery_before + mastery_delta))
+    mastery_after = max(0.0, min(1.0, mastery_before + (score * 0.03) - ((total - score) * 0.02)))
     new_tier = get_mastery_tier(mastery_after)
 
     conn.execute(
@@ -120,21 +112,22 @@ def submit_quiz():
     )
     conn.execute(
         "UPDATE quiz_attempts SET score = ?, total = ?, answers_json = ?, completed_at = ? WHERE id = ?",
-        (score, total, json.dumps(answers), datetime.utcnow().isoformat(), quiz_id),
+        (score, total, json.dumps([a.model_dump() for a in body.answers]),
+         datetime.utcnow().isoformat(), body.quiz_id),
     )
     conn.commit()
 
-    node2 = conn.execute("SELECT concept_name FROM graph_nodes WHERE id = ?", (concept_node_id,)).fetchone()
-    concept_name = node2["concept_name"] if node2 else "Unknown"
+    node2 = conn.execute(
+        "SELECT concept_name FROM graph_nodes WHERE id = ?", (concept_node_id,)
+    ).fetchone()
     user_row = conn.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
-    student_name = user_row["name"] if user_row else "Student"
     conn.close()
 
     existing_ctx = get_quiz_context(user_id, concept_node_id)
     ctx_prompt = (
         _load_prompt("quiz_context_update.txt")
-        .replace("{concept_name}", concept_name)
-        .replace("{student_name}", student_name)
+        .replace("{concept_name}", node2["concept_name"] if node2 else "Unknown")
+        .replace("{student_name}", user_row["name"] if user_row else "Student")
         .replace("{existing_quiz_context_json}", json.dumps(existing_ctx) if existing_ctx else "{}")
         .replace("{score}", str(score))
         .replace("{total}", str(total))
@@ -146,10 +139,10 @@ def submit_quiz():
     except Exception:
         pass
 
-    return jsonify({
+    return {
         "score": score,
         "total": total,
         "mastery_before": mastery_before,
         "mastery_after": mastery_after,
         "results": results,
-    })
+    }

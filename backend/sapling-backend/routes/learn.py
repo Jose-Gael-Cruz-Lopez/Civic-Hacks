@@ -1,15 +1,16 @@
-import sqlite3
 import uuid
 import json
 import os
 from datetime import datetime
-from flask import Blueprint, jsonify, request
 
-from config import DATABASE_PATH
+from fastapi import APIRouter, HTTPException
+
+from db.connection import get_conn
+from models import StartSessionBody, ChatBody, EndSessionBody, ActionBody
 from services.gemini_service import call_gemini, extract_graph_update
 from services.graph_service import get_graph, apply_graph_update
 
-learn_bp = Blueprint("learn", __name__)
+router = APIRouter()
 
 PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
@@ -27,18 +28,11 @@ MODE_PROMPTS = {
 }
 
 
-def get_conn():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
 def build_system_prompt(mode: str, student_name: str, graph_json: str, last_summary: str = "") -> str:
     preamble = PREAMBLE_TEMPLATE.replace("{student_name}", student_name)
     preamble = preamble.replace("{graph_json}", graph_json)
     preamble = preamble.replace("{last_session_summary}", last_summary or "None")
-    mode_prompt = MODE_PROMPTS.get(mode, MODE_PROMPTS["socratic"])
-    return preamble + "\n\n" + mode_prompt
+    return preamble + "\n\n" + MODE_PROMPTS.get(mode, MODE_PROMPTS["socratic"])
 
 
 def get_conversation_history(session_id: str) -> list:
@@ -64,7 +58,8 @@ def save_message(session_id: str, role: str, content: str, graph_update: dict = 
     mid = str(uuid.uuid4())
     conn.execute(
         "INSERT INTO messages (id, session_id, role, content, graph_update_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (mid, session_id, role, content, json.dumps(graph_update) if graph_update else None,
+        (mid, session_id, role, content,
+         json.dumps(graph_update) if graph_update else None,
          datetime.utcnow().isoformat()),
     )
     conn.commit()
@@ -78,101 +73,94 @@ def get_user_name(user_id: str) -> str:
     return row["name"] if row else "Student"
 
 
-@learn_bp.route("/start-session", methods=["POST"])
-def start_session():
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
-    topic = data.get("topic", "")
-    mode = data.get("mode", "socratic")
-
+@router.post("/start-session")
+def start_session(body: StartSessionBody):
     session_id = str(uuid.uuid4())
     conn = get_conn()
     conn.execute(
         "INSERT INTO sessions (id, user_id, mode, topic) VALUES (?, ?, ?, ?)",
-        (session_id, user_id, mode, topic),
+        (session_id, body.user_id, body.mode, body.topic),
     )
     conn.commit()
     conn.close()
 
-    student_name = get_user_name(user_id)
-    graph_data = get_graph(user_id)
-    graph_json = json.dumps(graph_data, indent=2)
-
-    system_prompt = build_system_prompt(mode, student_name, graph_json)
-    initial_prompt = (
+    student_name = get_user_name(body.user_id)
+    graph_data = get_graph(body.user_id)
+    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2))
+    full_prompt = (
         f"{system_prompt}\n\n"
-        f"Student wants to learn about: {topic}\n\n"
+        f"Student wants to learn about: {body.topic}\n\n"
         "Begin the session with a warm greeting and your first question or explanation."
     )
 
-    raw = call_gemini(initial_prompt)
+    try:
+        raw = call_gemini(full_prompt)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
+
     reply, graph_update = extract_graph_update(raw)
     save_message(session_id, "assistant", reply, graph_update)
-    apply_graph_update(user_id, graph_update)
-    updated_graph = get_graph(user_id)
+    apply_graph_update(body.user_id, graph_update)
 
-    return jsonify({
+    return {
         "session_id": session_id,
         "initial_message": reply,
-        "graph_state": updated_graph,
-    })
+        "graph_state": get_graph(body.user_id),
+    }
 
 
-@learn_bp.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json()
-    session_id = data.get("session_id")
-    user_id = data.get("user_id", "user_andres")
-    message = data.get("message", "")
-    mode = data.get("mode", "socratic")
+@router.post("/chat")
+def chat(body: ChatBody):
+    save_message(body.session_id, "user", body.message)
 
-    save_message(session_id, "user", message)
-
-    student_name = get_user_name(user_id)
-    graph_data = get_graph(user_id)
-    graph_json = json.dumps(graph_data, indent=2)
-    history = get_conversation_history(session_id)
+    student_name = get_user_name(body.user_id)
+    graph_data = get_graph(body.user_id)
+    history = get_conversation_history(body.session_id)
     history_text = format_history_for_prompt(history[:-1])
+    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2))
 
-    system_prompt = build_system_prompt(mode, student_name, graph_json)
     full_prompt = (
         f"{system_prompt}\n\n"
         f"CONVERSATION SO FAR:\n{history_text}\n\n"
-        f"Student: {message}\n\nSapling:"
+        f"Student: {body.message}\n\nSapling:"
     )
 
-    raw = call_gemini(full_prompt)
+    try:
+        raw = call_gemini(full_prompt)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
+
     reply, graph_update = extract_graph_update(raw)
-    save_message(session_id, "assistant", reply, graph_update)
-    mastery_changes = apply_graph_update(user_id, graph_update)
+    save_message(body.session_id, "assistant", reply, graph_update)
+    mastery_changes = apply_graph_update(body.user_id, graph_update)
 
-    return jsonify({
-        "reply": reply,
-        "graph_update": graph_update,
-        "mastery_changes": mastery_changes,
-    })
+    return {"reply": reply, "graph_update": graph_update, "mastery_changes": mastery_changes}
 
 
-@learn_bp.route("/end-session", methods=["POST"])
-def end_session():
-    data = request.get_json()
-    session_id = data.get("session_id")
-
+@router.post("/end-session")
+def end_session(body: EndSessionBody):
     conn = get_conn()
-    session = conn.execute("SELECT user_id, started_at FROM sessions WHERE id = ?", (session_id,)).fetchone()
+    session = conn.execute(
+        "SELECT user_id, started_at FROM sessions WHERE id = ?", (body.session_id,)
+    ).fetchone()
     if not session:
         conn.close()
-        return jsonify({"error": "Session not found"}), 404
+        raise HTTPException(status_code=404, detail="Session not found")
 
-    conn.execute("UPDATE sessions SET ended_at = ? WHERE id = ?", (datetime.utcnow().isoformat(), session_id))
-
-    msgs = conn.execute("SELECT graph_update_json FROM messages WHERE session_id = ?", (session_id,)).fetchall()
+    conn.execute(
+        "UPDATE sessions SET ended_at = ? WHERE id = ?",
+        (datetime.utcnow().isoformat(), body.session_id),
+    )
+    msgs = conn.execute(
+        "SELECT graph_update_json FROM messages WHERE session_id = ?", (body.session_id,)
+    ).fetchall()
     conn.commit()
     conn.close()
 
     try:
-        start_dt = datetime.fromisoformat(session["started_at"])
-        elapsed_minutes = int((datetime.utcnow() - start_dt).total_seconds() / 60)
+        elapsed_minutes = int(
+            (datetime.utcnow() - datetime.fromisoformat(session["started_at"])).total_seconds() / 60
+        )
     except Exception:
         elapsed_minutes = 0
 
@@ -197,44 +185,41 @@ def end_session():
     }
 
     conn = get_conn()
-    conn.execute("UPDATE sessions SET summary_json = ? WHERE id = ?", (json.dumps(summary), session_id))
+    conn.execute(
+        "UPDATE sessions SET summary_json = ? WHERE id = ?",
+        (json.dumps(summary), body.session_id),
+    )
     conn.commit()
     conn.close()
+    return {"summary": summary}
 
-    return jsonify({"summary": summary})
 
-
-@learn_bp.route("/action", methods=["POST"])
-def action():
-    data = request.get_json()
-    session_id = data.get("session_id")
-    user_id = data.get("user_id", "user_andres")
-    action_type = data.get("action_type", "hint")
-    mode = data.get("mode", "socratic")
-
+@router.post("/action")
+def action(body: ActionBody):
     action_prompts = {
         "hint": "The student asked for a hint. Give a small scaffold or clue without giving away the answer.",
         "confused": "The student said they are confused. Identify the likely point of confusion and re-explain with a different analogy.",
         "skip": "The student wants to skip this concept. Acknowledge and transition to the next recommended concept.",
     }
 
-    student_name = get_user_name(user_id)
-    graph_data = get_graph(user_id)
-    graph_json = json.dumps(graph_data, indent=2)
-    history = get_conversation_history(session_id)
+    student_name = get_user_name(body.user_id)
+    graph_data = get_graph(body.user_id)
+    history = get_conversation_history(body.session_id)
     history_text = format_history_for_prompt(history)
-    system_prompt = build_system_prompt(mode, student_name, graph_json)
-    action_instruction = action_prompts.get(action_type, "")
+    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2))
 
     full_prompt = (
         f"{system_prompt}\n\n"
         f"CONVERSATION SO FAR:\n{history_text}\n\n"
-        f"[ACTION: {action_instruction}]\n\nSapling:"
+        f"[ACTION: {action_prompts.get(body.action_type, '')}]\n\nSapling:"
     )
 
-    raw = call_gemini(full_prompt)
-    reply, graph_update = extract_graph_update(raw)
-    save_message(session_id, "assistant", reply, graph_update)
-    apply_graph_update(user_id, graph_update)
+    try:
+        raw = call_gemini(full_prompt)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
 
-    return jsonify({"reply": reply, "graph_update": graph_update})
+    reply, graph_update = extract_graph_update(raw)
+    save_message(body.session_id, "assistant", reply, graph_update)
+    apply_graph_update(body.user_id, graph_update)
+    return {"reply": reply, "graph_update": graph_update}

@@ -1,10 +1,12 @@
-import sqlite3
 import uuid
-import os
 from datetime import datetime
-from flask import Blueprint, jsonify, request, redirect
 
-from config import DATABASE_PATH, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES, FRONTEND_URL
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import RedirectResponse
+
+from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES, FRONTEND_URL
+from db.connection import get_conn
+from models import SaveAssignmentsBody, StudyBlockBody, ExportBody
 from services.calendar_service import extract_assignments_from_file
 
 try:
@@ -15,13 +17,7 @@ try:
 except ImportError:
     GOOGLE_AVAILABLE = False
 
-calendar_bp = Blueprint("calendar", __name__)
-
-
-def get_conn():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+router = APIRouter()
 
 
 def _google_client_config():
@@ -36,62 +32,53 @@ def _google_client_config():
     }
 
 
-@calendar_bp.route("/extract", methods=["POST"])
-def extract():
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    file = request.files["file"]
-    file_bytes = file.read()
+@router.post("/extract")
+async def extract(file: UploadFile = File(...)):
+    file_bytes = await file.read()
     filename = file.filename or "upload"
     content_type = file.content_type or "application/octet-stream"
     try:
         result = extract_assignments_from_file(file_bytes, filename, content_type)
-        return jsonify(result)
+        return result
     except Exception as e:
-        return jsonify({"error": str(e), "assignments": [], "warnings": [str(e)]}), 500
+        return {"error": str(e), "assignments": [], "warnings": [str(e)]}
 
 
-@calendar_bp.route("/save", methods=["POST"])
-def save_assignments():
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
-    assignments = data.get("assignments", [])
+@router.post("/save")
+def save_assignments(body: SaveAssignmentsBody):
     conn = get_conn()
     saved = 0
-    for a in assignments:
+    for a in body.assignments:
         aid = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO assignments (id, user_id, title, course_name, due_date, assignment_type, notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (aid, user_id, a.get("title", ""), a.get("course_name", ""), a.get("due_date", ""),
-             a.get("assignment_type", "other"), a.get("notes")),
+            (aid, body.user_id, a.title, a.course_name, a.due_date, a.assignment_type, a.notes),
         )
         saved += 1
     conn.commit()
     conn.close()
-    return jsonify({"saved_count": saved})
+    return {"saved_count": saved}
 
 
-@calendar_bp.route("/upcoming/<user_id>")
+@router.get("/upcoming/{user_id}")
 def get_upcoming(user_id: str):
     conn = get_conn()
     today = datetime.utcnow().strftime("%Y-%m-%d")
     rows = conn.execute(
-        "SELECT * FROM assignments WHERE user_id = ? AND due_date >= ? ORDER BY due_date ASC LIMIT 5",
+        "SELECT * FROM assignments WHERE user_id = ? AND due_date >= ? ORDER BY due_date ASC LIMIT 20",
         (user_id, today),
     ).fetchall()
     conn.close()
-    return jsonify({"assignments": [dict(r) for r in rows]})
+    return {"assignments": [dict(r) for r in rows]}
 
 
-@calendar_bp.route("/suggest-study-blocks", methods=["POST"])
-def suggest_study_blocks():
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
+@router.post("/suggest-study-blocks")
+def suggest_study_blocks(body: StudyBlockBody):
     conn = get_conn()
     today = datetime.utcnow().strftime("%Y-%m-%d")
     assignments = conn.execute(
         "SELECT * FROM assignments WHERE user_id = ? AND due_date >= ? ORDER BY due_date ASC",
-        (user_id, today),
+        (body.user_id, today),
     ).fetchall()
     conn.close()
     blocks = []
@@ -104,24 +91,23 @@ def suggest_study_blocks():
             "reason": f"Due {a['due_date']}",
             "related_assignment_id": a["id"],
         })
-    return jsonify({"study_blocks": blocks[:5]})
+    return {"study_blocks": blocks[:5]}
 
 
-@calendar_bp.route("/auth-url")
+@router.get("/auth-url")
 def auth_url():
     if not GOOGLE_AVAILABLE or not GOOGLE_CLIENT_ID:
-        return jsonify({"error": "Google Calendar not configured"}), 400
+        raise HTTPException(status_code=400, detail="Google Calendar not configured")
     flow = Flow.from_client_config(_google_client_config(), scopes=GOOGLE_SCOPES)
     flow.redirect_uri = GOOGLE_REDIRECT_URI
     auth_url_str, _ = flow.authorization_url(prompt="consent")
-    return jsonify({"url": auth_url_str})
+    return {"url": auth_url_str}
 
 
-@calendar_bp.route("/callback")
-def callback():
+@router.get("/callback")
+def callback(code: str = Query(...)):
     if not GOOGLE_AVAILABLE:
-        return redirect(f"{FRONTEND_URL}/calendar?error=google_not_configured")
-    code = request.args.get("code")
+        return RedirectResponse(f"{FRONTEND_URL}/calendar?error=google_not_configured")
     flow = Flow.from_client_config(_google_client_config(), scopes=GOOGLE_SCOPES)
     flow.redirect_uri = GOOGLE_REDIRECT_URI
     flow.fetch_token(code=code)
@@ -129,25 +115,25 @@ def callback():
     conn = get_conn()
     conn.execute(
         "INSERT OR REPLACE INTO oauth_tokens (user_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)",
-        ("user_andres", creds.token, creds.refresh_token or "", creds.expiry.isoformat() if creds.expiry else ""),
+        ("user_andres", creds.token, creds.refresh_token or "",
+         creds.expiry.isoformat() if creds.expiry else ""),
     )
     conn.commit()
     conn.close()
-    return redirect(f"{FRONTEND_URL}/calendar?connected=true")
+    return RedirectResponse(f"{FRONTEND_URL}/calendar?connected=true")
 
 
-@calendar_bp.route("/export", methods=["POST"])
-def export_to_google():
+@router.post("/export")
+def export_to_google(body: ExportBody):
     if not GOOGLE_AVAILABLE:
-        return jsonify({"error": "Google Calendar libraries not installed"}), 400
-    data = request.get_json()
-    user_id = data.get("user_id", "user_andres")
-    assignment_ids = data.get("assignment_ids", [])
+        raise HTTPException(status_code=400, detail="Google Calendar libraries not installed")
     conn = get_conn()
-    token_row = conn.execute("SELECT * FROM oauth_tokens WHERE user_id = ?", (user_id,)).fetchone()
+    token_row = conn.execute(
+        "SELECT * FROM oauth_tokens WHERE user_id = ?", (body.user_id,)
+    ).fetchone()
     if not token_row:
         conn.close()
-        return jsonify({"error": "Not connected to Google Calendar"}), 400
+        raise HTTPException(status_code=400, detail="Not connected to Google Calendar")
     creds = Credentials(
         token=token_row["access_token"],
         refresh_token=token_row["refresh_token"],
@@ -157,8 +143,10 @@ def export_to_google():
     )
     service = build("calendar", "v3", credentials=creds)
     exported = 0
-    for aid in assignment_ids:
-        assignment = conn.execute("SELECT * FROM assignments WHERE id = ?", (aid,)).fetchone()
+    for aid in body.assignment_ids:
+        assignment = conn.execute(
+            "SELECT * FROM assignments WHERE id = ?", (aid,)
+        ).fetchone()
         if not assignment:
             continue
         a = dict(assignment)
@@ -169,8 +157,10 @@ def export_to_google():
             "end": {"date": a["due_date"]},
         }
         created = service.events().insert(calendarId="primary", body=event).execute()
-        conn.execute("UPDATE assignments SET google_event_id = ? WHERE id = ?", (created["id"], aid))
+        conn.execute(
+            "UPDATE assignments SET google_event_id = ? WHERE id = ?", (created["id"], aid)
+        )
         exported += 1
     conn.commit()
     conn.close()
-    return jsonify({"exported_count": exported})
+    return {"exported_count": exported}
