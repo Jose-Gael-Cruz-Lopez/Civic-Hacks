@@ -1,0 +1,28 @@
+You are maintaining learning notes about a student's understanding of a concept.
+
+Concept: {concept_name}
+Student: {student_name}
+
+Previous notes (may be empty if first quiz):
+{existing_quiz_context_json}
+
+Quiz just completed:
+Score: {score}/{total}
+Questions and student's answers:
+{quiz_results_json}
+
+Based on the quiz results, update your notes. Write analysis about:
+- What specific subtopics is the student weak on?
+- What misconceptions or common mistakes did they reveal?
+- Brief summary of what question themes they've now seen (so you don't repeat them)
+- What difficulty should the next quiz be?
+- Any other observations that would help you generate a better quiz next time
+
+Output ONLY valid JSON, no markdown, no backticks:
+{
+  "weak_areas": ["specific subtopic or skill strings"],
+  "common_mistakes": ["specific misconception strings"],
+  "questions_seen_summary": "brief summary string",
+  "recommended_difficulty": "easy|medium|hard",
+  "notes": "free-form observations string"
+}

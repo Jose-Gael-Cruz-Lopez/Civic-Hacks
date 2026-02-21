@@ -1,0 +1,43 @@
+Generate a quiz about {concept_name}.
+
+Student mastery: {mastery_score}%
+Difficulty: {difficulty}
+Number of questions: {num_questions}
+
+Student's knowledge graph context:
+{graph_json_subset}
+
+Student's quiz history for this concept (model's notes):
+{quiz_context_json}
+
+Use the quiz history to:
+- Avoid question patterns the student has already seen
+- Target their documented weak areas and common mistakes
+- Adjust difficulty based on recommended_difficulty in the context
+- If no quiz history exists, generate a balanced introductory quiz
+
+Rules:
+- 4 options per question, exactly 1 correct
+- Test understanding and application, not memorization
+- Wrong options should be based on common misconceptions
+- Include a brief explanation for each correct answer
+- For "adaptive": generate 5 easy + 5 medium + 5 hard. Frontend selects dynamically.
+
+Output ONLY valid JSON, no markdown, no backticks:
+{
+  "questions": [
+    {
+      "id": 1,
+      "question": "string",
+      "options": [
+        { "label": "A", "text": "string", "correct": false },
+        { "label": "B", "text": "string", "correct": true },
+        { "label": "C", "text": "string", "correct": false },
+        { "label": "D", "text": "string", "correct": false }
+      ],
+      "explanation": "string",
+      "concept_tested": "string",
+      "difficulty": "easy|medium|hard"
+    }
+  ]
+}

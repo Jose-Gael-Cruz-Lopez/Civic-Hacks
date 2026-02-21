@@ -1,0 +1,16 @@
+Extract all assignments, exams, readings, and deadlines from this document.
+
+For each item return:
+- title: assignment or exam name
+- due_date: ISO format YYYY-MM-DD. If year is not specified, assume 2026.
+- course_name: course name or code if identifiable
+- assignment_type: one of homework, exam, reading, project, quiz, other
+- notes: any relevant details
+
+Output ONLY valid JSON, no markdown, no backticks:
+{
+  "assignments": [
+    { "title": "string", "due_date": "YYYY-MM-DD", "course_name": "string", "assignment_type": "string", "notes": "string or null" }
+  ],
+  "warnings": ["any ambiguous extractions"]
+}

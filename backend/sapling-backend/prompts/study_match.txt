@@ -1,0 +1,23 @@
+Analyze these students' knowledge graphs and identify study pairings.
+
+For each pair:
+1. Concepts where A is strong (>70%) and B is weak (<50%), and vice versa
+2. Concepts where both are struggling (<50%)
+3. Compatibility score 0-100 based on how complementary they are
+
+Write a natural-language summary for each pair that is specific and helpful.
+
+Output ONLY valid JSON, no markdown, no backticks:
+{
+  "pairings": [
+    {
+      "student_a_id": "string",
+      "student_b_id": "string",
+      "a_teaches_b": [{ "concept": "string", "a_mastery": 0.85, "b_mastery": 0.30 }],
+      "b_teaches_a": [{ "concept": "string", "b_mastery": 0.90, "a_mastery": 0.40 }],
+      "shared_struggles": [{ "concept": "string", "a_mastery": 0.25, "b_mastery": 0.35 }],
+      "compatibility_score": 78,
+      "summary": "string"
+    }
+  ]
+}

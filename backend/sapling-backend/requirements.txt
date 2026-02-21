@@ -1,0 +1,7 @@
+flask
+flask-cors
+google-genai
+google-auth-oauthlib
+google-api-python-client
+requests
+python-dotenv

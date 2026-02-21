@@ -1,0 +1,125 @@
+'use client';
+
+import { StudyMatch as StudyMatchType } from '@/lib/types';
+import Link from 'next/link';
+
+interface Props {
+  matches: StudyMatchType[];
+  onFindMatches: () => void;
+  loading: boolean;
+}
+
+export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button
+          onClick={onFindMatches}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            background: '#111827',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 500,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? 'Finding matches...' : 'Find Study Partners'}
+        </button>
+      </div>
+
+      {matches.length === 0 && !loading && (
+        <p style={{ color: '#9ca3af', fontSize: '14px' }}>Click above to find study partners in this room.</p>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {matches.map(match => (
+          <div
+            key={match.partner.id}
+            style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              padding: '16px',
+              background: '#ffffff',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{match.partner.name}</span>
+              <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                {match.compatibility_score}/100 match
+              </span>
+            </div>
+
+            {match.you_can_teach.length > 0 && (
+              <div style={{ marginBottom: '10px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 500, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                  You can help with
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {match.you_can_teach.map(t => (
+                    <span key={t.concept} style={{ fontSize: '12px', color: '#374151', padding: '2px 8px', background: '#eff6ff', borderRadius: '4px' }}>
+                      {t.concept} ({Math.round(t.your_mastery * 100)}% vs {Math.round(t.their_mastery * 100)}%)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {match.they_can_teach.length > 0 && (
+              <div style={{ marginBottom: '10px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 500, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                  They can help with
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {match.they_can_teach.map(t => (
+                    <span key={t.concept} style={{ fontSize: '12px', color: '#374151', padding: '2px 8px', background: '#fff7ed', borderRadius: '4px' }}>
+                      {t.concept} ({Math.round(t.their_mastery * 100)}% vs {Math.round(t.your_mastery * 100)}%)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {match.shared_struggles.length > 0 && (
+              <div style={{ marginBottom: '10px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 500, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                  Study together
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {match.shared_struggles.map(t => (
+                    <span key={t.concept} style={{ fontSize: '12px', color: '#374151', padding: '2px 8px', background: '#fef2f2', borderRadius: '4px' }}>
+                      {t.concept}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '10px' }}>{match.summary}</p>
+
+            {match.they_can_teach[0] && (
+              <Link
+                href={`/learn?topic=${encodeURIComponent(match.they_can_teach[0].concept)}`}
+                style={{
+                  fontSize: '12px',
+                  color: '#374151',
+                  textDecoration: 'none',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '4px',
+                  padding: '4px 10px',
+                  display: 'inline-block',
+                }}
+              >
+                Start Session
+              </Link>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
