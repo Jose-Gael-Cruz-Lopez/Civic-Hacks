@@ -31,9 +31,9 @@ def health():
 def list_users():
     from db.connection import get_conn
     conn = get_conn()
-    rows = conn.execute("SELECT id, name, room_id FROM users ORDER BY name").fetchall()
+    rows = conn.execute("SELECT id, name FROM users ORDER BY name").fetchall()
     conn.close()
-    return {"users": [{"id": r["id"], "name": r["name"], "room_id": r["room_id"]} for r in rows]}
+    return {"users": [{"id": r["id"], "name": r["name"]} for r in rows]}
 
 
 @app.get("/api/gemini-test")

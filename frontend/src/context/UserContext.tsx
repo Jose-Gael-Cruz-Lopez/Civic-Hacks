@@ -5,7 +5,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 interface UserOption {
   id: string;
   name: string;
-  room_id: string | null;
 }
 
 interface UserContextValue {
@@ -43,7 +42,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch('http://localhost:5000/api/users')
       .then(r => r.json())
-      .then(data => setUsers(data.users ?? []))
+      .then((data: { users: UserOption[] }) => setUsers(data.users ?? []))
       .catch(() => {});
   }, []);
 

@@ -58,33 +58,35 @@ export default function Navbar() {
         })}
       </div>
 
-      {/* User switcher — right side */}
+      {/* User switcher — right side, always visible */}
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {users.length > 0 ? (
-          <select
-            value={userId}
-            onChange={e => {
-              const selected = users.find(u => u.id === e.target.value);
-              if (selected) setActiveUser(selected.id, selected.name);
-            }}
-            style={{
-              padding: '4px 8px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '4px',
-              fontSize: '13px',
-              color: '#374151',
-              background: '#ffffff',
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            {users.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
-        ) : (
-          <span style={{ fontSize: '13px', color: '#6b7280' }}>{userName}</span>
-        )}
+        <select
+          value={userId}
+          onChange={e => {
+            const selected = users.find(u => u.id === e.target.value);
+            if (selected) setActiveUser(selected.id, selected.name);
+          }}
+          style={{
+            padding: '5px 10px',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            fontSize: '13px',
+            fontWeight: 500,
+            color: '#111827',
+            background: '#f9fafb',
+            cursor: 'pointer',
+            outline: 'none',
+            minWidth: '120px',
+          }}
+        >
+          {/* Always show at least the current user while the list loads */}
+          {users.length === 0
+            ? <option value={userId}>{userName}</option>
+            : users.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))
+          }
+        </select>
       </div>
     </nav>
   );
