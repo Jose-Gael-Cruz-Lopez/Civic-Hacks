@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { ChatMessage, TeachingMode } from '@/lib/types';
 
 interface Props {
@@ -74,7 +75,31 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
                 border: msg.role === 'user' ? '1px solid #d1fae5' : '1px solid #e5e7eb',
               }}
             >
-              {msg.content}
+              {msg.role === 'user' ? (
+                msg.content
+              ) : (
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p style={{ margin: 0, marginBottom: '6px' }}>{children}</p>,
+                    ul: ({ children }) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ol>,
+                    li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
+                    code: ({ children }) => (
+                      <code style={{ background: '#e5e7eb', borderRadius: '3px', padding: '1px 4px', fontSize: '13px', fontFamily: 'monospace' }}>
+                        {children}
+                      </code>
+                    ),
+                    pre: ({ children }) => (
+                      <pre style={{ background: '#1f2937', color: '#f9fafb', borderRadius: '6px', padding: '10px', overflowX: 'auto', fontSize: '13px', margin: '0 0 8px 0' }}>
+                        {children}
+                      </pre>
+                    ),
+                    strong: ({ children }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              )}
             </div>
           </div>
         ))}

@@ -6,12 +6,13 @@ import KnowledgeGraph from '@/components/KnowledgeGraph';
 import { GraphNode, GraphEdge } from '@/lib/types';
 import { getGraph } from '@/lib/api';
 import { getMasteryColor, getMasteryLabel, formatRelativeTime } from '@/lib/graphUtils';
+import { useUser } from '@/context/UserContext';
 
-const USER_ID = 'user_andres';
 type Filter = 'all' | 'mastered' | 'learning' | 'struggling' | 'unexplored';
 
 export default function TreePage() {
   const router = useRouter();
+  const { userId } = useUser();
   const [allNodes, setAllNodes] = useState<GraphNode[]>([]);
   const [allEdges, setAllEdges] = useState<GraphEdge[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -21,7 +22,7 @@ export default function TreePage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getGraph(USER_ID).then(data => {
+    getGraph(userId).then(data => {
       setAllNodes(data.nodes);
       setAllEdges(data.edges);
     }).catch(console.error);

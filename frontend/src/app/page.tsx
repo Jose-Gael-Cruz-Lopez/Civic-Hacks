@@ -6,9 +6,9 @@ import KnowledgeGraph from '@/components/KnowledgeGraph';
 import { GraphNode, GraphStats, Recommendation, Assignment } from '@/lib/types';
 import { getGraph, getRecommendations, getUpcomingAssignments } from '@/lib/api';
 import { getMasteryColor, getMasteryLabel, formatDueDate, formatRelativeTime } from '@/lib/graphUtils';
+import { useUser } from '@/context/UserContext';
 import Link from 'next/link';
 
-const USER_ID = 'user_andres';
 const STATS_LABELS: Record<string, string> = {
   mastered: 'mastered',
   learning: 'learning',
@@ -18,6 +18,7 @@ const STATS_LABELS: Record<string, string> = {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { userId, userName } = useUser();
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 600, height: 400 });
 
@@ -32,9 +33,9 @@ export default function Dashboard() {
     async function load() {
       try {
         const [graphData, recData, assignData] = await Promise.all([
-          getGraph(USER_ID),
-          getRecommendations(USER_ID),
-          getUpcomingAssignments(USER_ID),
+          getGraph(userId),
+          getRecommendations(userId),
+          getUpcomingAssignments(userId),
         ]);
         setNodes(graphData.nodes);
         setEdges(graphData.edges);
@@ -142,7 +143,7 @@ export default function Dashboard() {
       >
         {/* User header */}
         <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-          <p style={{ fontSize: '16px', fontWeight: 600, color: '#111827' }}>Andres</p>
+          <p style={{ fontSize: '16px', fontWeight: 600, color: '#111827' }}>{userName}</p>
           <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
             {stats?.streak ?? 0} day streak
           </p>

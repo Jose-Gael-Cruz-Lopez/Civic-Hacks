@@ -73,7 +73,7 @@ def get_user_rooms(user_id: str):
 
 
 @router.get("/rooms/{room_id}/overview")
-def room_overview(room_id: str, viewer_id: str = Query("user_andres")):
+def room_overview(room_id: str, viewer_id: str = Query("user_john")):
     conn = get_conn()
     room = conn.execute("SELECT * FROM rooms WHERE id = ?", (room_id,)).fetchone()
     if not room:

@@ -7,14 +7,14 @@ import ChatPanel from '@/components/ChatPanel';
 import ModeSelector from '@/components/ModeSelector';
 import QuizPanel from '@/components/QuizPanel';
 import SessionSummary from '@/components/SessionSummary';
-import { GraphNode, GraphEdge, ChatMessage, TeachingMode, GraphUpdate, SessionSummary as SessionSummaryType } from '@/lib/types';
+import { GraphNode, GraphEdge, ChatMessage, TeachingMode, SessionSummary as SessionSummaryType } from '@/lib/types';
 import { startSession, sendChat, sendAction, endSession, getGraph } from '@/lib/api';
 import Link from 'next/link';
 import { getMasteryLabel } from '@/lib/graphUtils';
-
-const USER_ID = 'user_andres';
+import { useUser } from '@/context/UserContext';
 
 function LearnInner() {
+  const { userId: USER_ID } = useUser();
   const searchParams = useSearchParams();
   const router = useRouter();
   const topicParam = searchParams.get('topic') ?? '';
@@ -35,10 +35,12 @@ function LearnInner() {
   const [summary, setSummary] = useState<SessionSummaryType | null>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 500, height: 500 });
   const graphContainerRef = useRef<HTMLDivElement>(null);
-  const [currentMastery, setCurrentMastery] = useState<number | null>(null);
 
   const [topic, setTopic] = useState(topicParam);
-  const [topicInput, setTopicInput] = useState(topicParam);
+  const [selectedCourse, setSelectedCourse] = useState('');
+
+  // Derive unique course list from graph nodes
+  const courses = [...new Set(nodes.map(n => n.subject).filter(Boolean))].sort();
 
   // Load initial graph
   useEffect(() => {
@@ -60,15 +62,16 @@ function LearnInner() {
     return () => obs.disconnect();
   }, []);
 
-  // Start session when topic is set
+  // If a topic was passed via URL (e.g. from tree "Learn This" button), auto-start
   useEffect(() => {
-    if (!topic || quizMode) return;
-    beginSession(topic, mode);
+    if (!topicParam || quizMode) return;
+    beginSession(topicParam, mode);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const beginSession = async (t: string, m: TeachingMode) => {
     setSessionLoading(true);
     setMessages([]);
+    setSessionId(null);
     try {
       const res = await startSession(USER_ID, t, m);
       setSessionId(res.session_id);
@@ -80,12 +83,6 @@ function LearnInner() {
         content: res.initial_message,
         timestamp: new Date().toISOString(),
       }]);
-
-      // Track mastery for current topic node
-      const topicNode = res.graph_state.nodes.find((n: GraphNode) =>
-        n.concept_name.toLowerCase() === t.toLowerCase()
-      );
-      if (topicNode) setCurrentMastery(topicNode.mastery_score);
     } catch (e) {
       console.error(e);
     } finally {
@@ -105,14 +102,14 @@ function LearnInner() {
     setChatLoading(true);
     try {
       const res = await sendChat(sessionId, USER_ID, message, mode);
-      const aiMsg: ChatMessage = {
+      setMessages(prev => [...prev, {
         id: `msg_${Date.now() + 1}`,
         role: 'assistant',
         content: res.reply,
         timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, aiMsg]);
-      applyGraphUpdate(res.graph_update);
+      }]);
+      // Re-fetch graph to reflect any mastery changes — doesn't affect chat
+      getGraph(USER_ID).then(data => { setNodes(data.nodes); setEdges(data.edges); }).catch(console.error);
     } catch (e) {
       console.error(e);
     } finally {
@@ -125,14 +122,13 @@ function LearnInner() {
     setChatLoading(true);
     try {
       const res = await sendAction(sessionId, USER_ID, action, mode);
-      const aiMsg: ChatMessage = {
+      setMessages(prev => [...prev, {
         id: `msg_${Date.now()}`,
         role: 'assistant',
         content: res.reply,
         timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, aiMsg]);
-      applyGraphUpdate(res.graph_update);
+      }]);
+      getGraph(USER_ID).then(data => { setNodes(data.nodes); setEdges(data.edges); }).catch(console.error);
     } catch (e) {
       console.error(e);
     } finally {
@@ -150,25 +146,17 @@ function LearnInner() {
     }
   };
 
-  const applyGraphUpdate = (update: GraphUpdate) => {
-    // Re-fetch graph after update for fresh state
-    getGraph(USER_ID).then(data => {
-      setNodes(data.nodes);
-      setEdges(data.edges);
-    }).catch(console.error);
-  };
-
+  // Switching mode only updates state — the new mode is passed on every subsequent message.
+  // The graph and session are unaffected.
   const handleModeChange = (newMode: TeachingMode) => {
     setMode(newMode);
-    if (sessionId && topic) {
-      beginSession(topic, newMode);
-    }
   };
 
-  const handleStartTopic = () => {
-    if (!topicInput.trim()) return;
-    setTopic(topicInput.trim());
-    beginSession(topicInput.trim(), mode);
+  const handleSelectCourse = (course: string) => {
+    if (!course) return;
+    setSelectedCourse(course);
+    setTopic(course);
+    beginSession(course, mode);
   };
 
   // Get topic node for header mastery display
@@ -193,48 +181,46 @@ function LearnInner() {
           ←
         </Link>
 
-        {/* Topic input or display */}
-        {!sessionId && !sessionLoading ? (
-          <div style={{ display: 'flex', gap: '8px', flex: 1, maxWidth: '400px' }}>
-            <input
-              value={topicInput}
-              onChange={e => setTopicInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleStartTopic()}
-              placeholder="What do you want to learn?"
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '4px',
-                fontSize: '14px',
-                outline: 'none',
-              }}
-            />
-            <button
-              onClick={handleStartTopic}
-              style={{
-                padding: '6px 12px',
-                background: '#111827',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Start
-            </button>
-          </div>
-        ) : (
-          <div style={{ flex: 1 }}>
-            <span style={{ fontSize: '15px', fontWeight: 500, color: '#111827' }}>{topic}</span>
+        {/* Course dropdown — always visible; topic label shown when session is active */}
+        <select
+          value={selectedCourse}
+          onChange={e => handleSelectCourse(e.target.value)}
+          style={{
+            padding: '5px 10px',
+            border: '1px solid #e5e7eb',
+            borderRadius: '4px',
+            fontSize: '13px',
+            color: '#374151',
+            background: '#ffffff',
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          <option value="">Select a course…</option>
+          {courses.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
+        {/* Active topic / concept label */}
+        {topic && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {topic !== selectedCourse && (
+              <span style={{ fontSize: '13px', color: '#9ca3af' }}>→</span>
+            )}
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
+              {topic !== selectedCourse ? topic : ''}
+            </span>
             {topicNode && (
-              <span style={{ fontSize: '13px', color: '#9ca3af', marginLeft: '8px' }}>
+              <span style={{ fontSize: '12px', color: '#9ca3af' }}>
                 {getMasteryLabel(topicNode.mastery_score)}
               </span>
             )}
-            {sessionLoading && <span style={{ fontSize: '13px', color: '#9ca3af', marginLeft: '8px' }}>Starting...</span>}
           </div>
+        )}
+
+        {sessionLoading && (
+          <span style={{ fontSize: '13px', color: '#9ca3af' }}>Starting…</span>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
@@ -260,7 +246,6 @@ function LearnInner() {
                 onLearnConcept={(concept) => {
                   setQuizMode(false);
                   if (concept) {
-                    setTopicInput(concept);
                     setTopic(concept);
                     beginSession(concept, mode);
                   }
@@ -291,7 +276,6 @@ function LearnInner() {
               interactive
               highlightId={topicNode?.id}
               onNodeClick={n => {
-                setTopicInput(n.concept_name);
                 setTopic(n.concept_name);
                 beginSession(n.concept_name, mode);
               }}

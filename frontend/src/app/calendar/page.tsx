@@ -6,8 +6,7 @@ import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
 import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, exportToGoogleCalendar } from '@/lib/api';
-
-const USER_ID = 'user_andres';
+import { useUser } from '@/context/UserContext';
 
 function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
   const [month, setMonth] = useState(() => {
@@ -97,6 +96,7 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
 }
 
 function CalendarInner() {
+  const { userId: USER_ID } = useUser();
   const searchParams = useSearchParams();
   const googleConnected = searchParams.get('connected') === 'true';
 

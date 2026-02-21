@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import GEMINI_API_KEY
 
 _client = genai.Client(api_key=GEMINI_API_KEY)
-_MODEL = "gemini-2.0-flash"
+_MODEL = "gemini-2.5-flash"
 
 
 def _strip_backtick_fencing(text: str) -> str:

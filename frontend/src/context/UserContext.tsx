@@ -8,13 +8,13 @@ interface UserContextValue {
 }
 
 const UserContext = createContext<UserContextValue>({
-  userId: 'user_andres',
-  userName: 'Andres',
+  userId: 'user_john',
+  userName: 'John Doe',
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [userId] = useState('user_andres');
-  const [userName] = useState('Andres');
+  const [userId] = useState('user_john');
+  const [userName] = useState('John Doe');
 
   return (
     <UserContext.Provider value={{ userId, userName }}>

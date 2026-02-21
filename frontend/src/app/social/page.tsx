@@ -6,11 +6,12 @@ import RoomOverview from '@/components/RoomOverview';
 import StudyMatch from '@/components/StudyMatch';
 import { Room, RoomActivity, StudyMatch as StudyMatchType } from '@/lib/types';
 import { getUserRooms, getRoomOverview, getRoomActivity, findStudyMatches } from '@/lib/api';
+import { useUser } from '@/context/UserContext';
 
-const USER_ID = 'user_andres';
 type Tab = 'overview' | 'match' | 'activity';
 
 export default function SocialPage() {
+  const { userId: USER_ID } = useUser();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
