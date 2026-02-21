@@ -79,11 +79,11 @@ def submit_quiz(body: SubmitQuizBody):
     user_id = attempt["user_id"]
     concept_node_id = attempt["concept_node_id"]
 
-    answer_map = {a.question_id: a.selected_label for a in body.answers}
+    answer_map = {str(a.question_id): a.selected_label for a in body.answers}
     results = []
     score = 0
     for q in questions:
-        qid = q["id"]
+        qid = str(q["id"])
         selected = answer_map.get(qid, "")
         correct_opt = next((o for o in q["options"] if o.get("correct")), None)
         correct_label = correct_opt["label"] if correct_opt else ""

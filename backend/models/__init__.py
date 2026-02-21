@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel
 
 
@@ -38,7 +38,7 @@ class GenerateQuizBody(BaseModel):
 
 
 class AnswerItem(BaseModel):
-    question_id: int
+    question_id: Union[int, str]
     selected_label: str
 
 

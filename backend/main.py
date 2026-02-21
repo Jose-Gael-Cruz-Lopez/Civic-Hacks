@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import FRONTEND_URL, FLASK_PORT
-from routes import graph, learn, quiz, calendar, social
+from config import FRONTEND_URL, PORT
+from routes import graph, learn, quiz, calendar, social, extract
 
 app = FastAPI(title="Sapling API", version="1.0.0")
 
@@ -19,6 +19,7 @@ app.include_router(learn.router,    prefix="/api/learn")
 app.include_router(quiz.router,     prefix="/api/quiz")
 app.include_router(calendar.router, prefix="/api/calendar")
 app.include_router(social.router,   prefix="/api/social")
+app.include_router(extract.router,  prefix="/api/extract")
 
 
 @app.get("/api/health")
@@ -39,4 +40,4 @@ def gemini_test():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=FLASK_PORT, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)

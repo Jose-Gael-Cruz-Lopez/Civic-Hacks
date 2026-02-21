@@ -12,7 +12,6 @@ def _clean_text(value: str) -> str:
 
 
 def _preprocess_for_ocr(image: Image.Image) -> Image.Image:
-    # Lightweight preprocessing that improves OCR consistency on screenshots.
     gray = ImageOps.grayscale(image)
     return ImageOps.autocontrast(gray)
 
@@ -39,12 +38,25 @@ def extract_text_from_pdf_ocr(
     pdf = pdfium.PdfDocument(pdf_bytes)
     page_count = min(len(pdf), max_pages)
     chunks: List[str] = []
-
     for i in range(page_count):
         page = pdf[i]
         pil_image = page.render(scale=2).to_pil()
         processed = _preprocess_for_ocr(pil_image)
         chunks.append(pytesseract.image_to_string(processed, lang=lang, config="--psm 6"))
         page.close()
-
     return _clean_text("\n\n".join(chunks)), page_count
+
+
+def extract_text_from_file(file_bytes: bytes, filename: str, content_type: str) -> str:
+    """Extract raw text from a PDF or image file."""
+    if content_type == "application/pdf" or filename.lower().endswith(".pdf"):
+        try:
+            text, _ = extract_text_from_pdf_native(file_bytes)
+            if len(text) >= 50:
+                return text
+        except Exception:
+            pass
+        text, _ = extract_text_from_pdf_ocr(file_bytes)
+        return text
+    else:
+        return extract_text_from_image_bytes(file_bytes)

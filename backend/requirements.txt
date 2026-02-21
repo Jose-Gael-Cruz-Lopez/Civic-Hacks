@@ -4,5 +4,8 @@ python-multipart
 google-genai
 google-auth-oauthlib
 google-api-python-client
-requests
 python-dotenv
+pytesseract
+pillow
+pypdf
+pypdfium2

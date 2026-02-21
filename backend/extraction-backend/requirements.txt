@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-python-multipart
-pydantic
-pytesseract
-pillow
-pypdf
-pypdfium2
