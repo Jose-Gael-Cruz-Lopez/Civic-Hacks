@@ -12,6 +12,10 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// Users
+export const getUsers = () =>
+  fetchJSON<{ users: { id: string; name: string; room_id: string | null }[] }>('/api/users');
+
 // Graph
 export const getGraph = (userId: string) =>
   fetchJSON<{ nodes: any[]; edges: any[]; stats: any }>(`/api/graph/${userId}`);

@@ -27,6 +27,15 @@ def health():
     return {"status": "ok", "service": "sapling-backend"}
 
 
+@app.get("/api/users")
+def list_users():
+    from db.connection import get_conn
+    conn = get_conn()
+    rows = conn.execute("SELECT id, name, room_id FROM users ORDER BY name").fetchall()
+    conn.close()
+    return {"users": [{"id": r["id"], "name": r["name"], "room_id": r["room_id"]} for r in rows]}
+
+
 @app.get("/api/gemini-test")
 def gemini_test():
     """Test Gemini connectivity. Shows clear error if API key is missing/wrong."""

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT,
     streak_count INTEGER DEFAULT 0,
     last_active_date TEXT,
+    room_id TEXT,  -- primary study room (FK to rooms, set after room creation)
     created_at TEXT DEFAULT (datetime('now'))
 );
 

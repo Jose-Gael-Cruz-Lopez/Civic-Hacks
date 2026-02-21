@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import KnowledgeGraph from './KnowledgeGraph';
-import { RoomMember, GraphNode } from '@/lib/types';
+import { RoomMember } from '@/lib/types';
 
 interface Props {
   room: { name: string; invite_code: string };
@@ -29,15 +29,41 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>{room.name}</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#9ca3af', fontFamily: 'monospace', letterSpacing: '0.1em' }}>
-            {room.invite_code}
-          </span>
+
+        {/* Invite code chip */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          padding: '8px 14px',
+          background: '#f9fafb',
+          border: '1px solid #e5e7eb',
+          borderRadius: '8px',
+          flexShrink: 0,
+        }}>
+          <div>
+            <p style={{ fontSize: '10px', color: '#9ca3af', margin: '0 0 2px', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Invite Code
+            </p>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: '#111827', fontFamily: 'monospace', letterSpacing: '0.18em' }}>
+              {room.invite_code}
+            </span>
+          </div>
           <button
             onClick={copyCode}
-            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', cursor: 'pointer' }}
+            style={{
+              padding: '5px 10px',
+              background: copied ? '#dcfce7' : '#111827',
+              color: copied ? '#16a34a' : '#ffffff',
+              border: 'none',
+              borderRadius: '5px',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
           >
             {copied ? 'Copied!' : 'Copy'}
           </button>

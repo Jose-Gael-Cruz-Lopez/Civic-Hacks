@@ -12,23 +12,44 @@ interface Props {
   onRoomsChange: (rooms: Room[]) => void;
 }
 
+type Panel = 'none' | 'create' | 'join';
+
 export default function RoomList({ rooms, activeRoomId, userId, onSelectRoom, onRoomsChange }: Props) {
-  const [showCreate, setShowCreate] = useState(false);
-  const [showJoin, setShowJoin] = useState(false);
+  const [panel, setPanel] = useState<Panel>('none');
   const [roomName, setRoomName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [newCode, setNewCode] = useState('');
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const openPanel = (p: Panel) => {
+    setPanel(prev => prev === p ? 'none' : p);
+    setError('');
+    setNewCode('');
+    setRoomName('');
+    setInviteCode('');
+  };
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleCreate = async () => {
     if (!roomName.trim()) return;
     setLoading(true);
+    setError('');
     try {
       const res = await createRoom(userId, roomName.trim());
       setNewCode(res.invite_code);
-      setRoomName('');
       const newRoom: Room = { id: res.room_id, name: roomName.trim(), invite_code: res.invite_code, member_count: 1 };
       onRoomsChange([...rooms, newRoom]);
+      onSelectRoom(res.room_id);
+      setRoomName('');
+    } catch {
+      setError('Failed to create room.');
     } finally {
       setLoading(false);
     }
@@ -37,104 +58,220 @@ export default function RoomList({ rooms, activeRoomId, userId, onSelectRoom, on
   const handleJoin = async () => {
     if (!inviteCode.trim()) return;
     setLoading(true);
+    setError('');
     try {
       const res = await joinRoom(userId, inviteCode.trim());
       setInviteCode('');
-      setShowJoin(false);
+      setPanel('none');
       if (!rooms.find(r => r.id === res.room.id)) {
         onRoomsChange([...rooms, res.room]);
       }
       onSelectRoom(res.room.id);
+    } catch {
+      setError('Invalid invite code.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Study Rooms</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #f3f4f6' }}>
+        <p style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>
+          Study Rooms
+        </p>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => { setShowCreate(!showCreate); setShowJoin(false); setNewCode(''); }}
-            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', cursor: 'pointer' }}>
-            Create
+          <button
+            onClick={() => openPanel('create')}
+            style={{
+              flex: 1,
+              padding: '7px 0',
+              border: '1px solid #e5e7eb',
+              borderRadius: '5px',
+              background: panel === 'create' ? '#111827' : '#ffffff',
+              color: panel === 'create' ? '#ffffff' : '#374151',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            + Create
           </button>
-          <button onClick={() => { setShowJoin(!showJoin); setShowCreate(false); setNewCode(''); }}
-            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', cursor: 'pointer' }}>
+          <button
+            onClick={() => openPanel('join')}
+            style={{
+              flex: 1,
+              padding: '7px 0',
+              border: '1px solid #e5e7eb',
+              borderRadius: '5px',
+              background: panel === 'join' ? '#111827' : '#ffffff',
+              color: panel === 'join' ? '#ffffff' : '#374151',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
             Join
           </button>
         </div>
       </div>
 
-      {showCreate && (
-        <div style={{ marginBottom: '12px', padding: '12px', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+      {/* Create panel */}
+      {panel === 'create' && (
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
           {newCode ? (
             <div>
-              <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Invite code:</p>
-              <p style={{ fontSize: '16px', fontWeight: 700, color: '#111827', letterSpacing: '0.1em' }}>{newCode}</p>
-              <button onClick={() => { setShowCreate(false); setNewCode(''); }}
-                style={{ marginTop: '8px', background: 'none', border: 'none', color: '#9ca3af', fontSize: '12px', cursor: 'pointer' }}>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 8px', fontWeight: 500 }}>
+                Room created! Share this code:
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 12px',
+                background: '#111827',
+                borderRadius: '6px',
+              }}>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#ffffff', letterSpacing: '0.15em', fontFamily: 'monospace' }}>
+                  {newCode}
+                </span>
+                <button
+                  onClick={() => copyCode(newCode)}
+                  style={{ background: 'none', border: 'none', color: copied ? '#4ade80' : '#9ca3af', fontSize: '12px', cursor: 'pointer' }}
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <button
+                onClick={() => { setPanel('none'); setNewCode(''); }}
+                style={{ marginTop: '10px', background: 'none', border: 'none', color: '#9ca3af', fontSize: '12px', cursor: 'pointer' }}
+              >
                 Done
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 8px', fontWeight: 500 }}>Room name</p>
               <input
                 value={roomName}
                 onChange={e => setRoomName(e.target.value)}
-                placeholder="Room name"
-                style={{ flex: 1, padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '13px' }}
+                onKeyDown={e => e.key === 'Enter' && handleCreate()}
+                placeholder="e.g. CS 101 Study Group"
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '5px',
+                  fontSize: '13px',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
               />
-              <button onClick={handleCreate} disabled={loading || !roomName.trim()}
-                style={{ padding: '6px 10px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>
-                Create
+              {error && <p style={{ fontSize: '12px', color: '#ef4444', margin: '6px 0 0' }}>{error}</p>}
+              <button
+                onClick={handleCreate}
+                disabled={loading || !roomName.trim()}
+                style={{
+                  marginTop: '10px',
+                  width: '100%',
+                  padding: '8px',
+                  background: '#111827',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '5px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading || !roomName.trim() ? 0.6 : 1,
+                }}
+              >
+                {loading ? 'Creating…' : 'Create Room'}
               </button>
             </div>
           )}
         </div>
       )}
 
-      {showJoin && (
-        <div style={{ marginBottom: '12px', padding: '12px', background: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <input
-              value={inviteCode}
-              onChange={e => setInviteCode(e.target.value.toUpperCase())}
-              placeholder="Invite code"
-              style={{ flex: 1, padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '13px', letterSpacing: '0.1em' }}
-            />
-            <button onClick={handleJoin} disabled={loading || !inviteCode.trim()}
-              style={{ padding: '6px 10px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>
-              Join
-            </button>
-          </div>
+      {/* Join panel */}
+      {panel === 'join' && (
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6', background: '#fafafa' }}>
+          <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 8px', fontWeight: 500 }}>Enter invite code</p>
+          <input
+            value={inviteCode}
+            onChange={e => setInviteCode(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && handleJoin()}
+            placeholder="ABC123"
+            maxLength={6}
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '5px',
+              fontSize: '18px',
+              fontWeight: 600,
+              letterSpacing: '0.2em',
+              textAlign: 'center',
+              fontFamily: 'monospace',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+          {error && <p style={{ fontSize: '12px', color: '#ef4444', margin: '6px 0 0' }}>{error}</p>}
+          <button
+            onClick={handleJoin}
+            disabled={loading || inviteCode.length < 6}
+            style={{
+              marginTop: '10px',
+              width: '100%',
+              padding: '8px',
+              background: '#111827',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '5px',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading || inviteCode.length < 6 ? 0.6 : 1,
+            }}
+          >
+            {loading ? 'Joining…' : 'Join Room'}
+          </button>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        {rooms.map(room => (
-          <button
-            key={room.id}
-            onClick={() => onSelectRoom(room.id)}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '10px 12px',
-              border: 'none',
-              borderRadius: '6px',
-              borderLeft: room.id === activeRoomId ? '3px solid #111827' : '3px solid transparent',
-              background: room.id === activeRoomId ? '#f9fafb' : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            <p style={{ fontSize: '13px', fontWeight: 500, color: '#111827', margin: 0 }}>{room.name}</p>
-            <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0' }}>{room.member_count} members</p>
-          </button>
-        ))}
-        {rooms.length === 0 && (
-          <p style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '16px 0' }}>
-            No rooms yet. Create or join one.
+      {/* Room list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+        {rooms.length === 0 ? (
+          <p style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '24px 8px' }}>
+            No rooms yet.
           </p>
+        ) : (
+          rooms.map(room => (
+            <button
+              key={room.id}
+              onClick={() => onSelectRoom(room.id)}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                padding: '10px 12px',
+                border: 'none',
+                borderRadius: '6px',
+                borderLeft: room.id === activeRoomId ? '3px solid #111827' : '3px solid transparent',
+                background: room.id === activeRoomId ? '#f3f4f6' : 'transparent',
+                cursor: 'pointer',
+                marginBottom: '2px',
+              }}
+            >
+              <p style={{ fontSize: '13px', fontWeight: 500, color: '#111827', margin: 0 }}>{room.name}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                <span style={{ fontSize: '11px', color: '#9ca3af' }}>{room.member_count} member{room.member_count !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: '11px', color: '#d1d5db', fontFamily: 'monospace', letterSpacing: '0.08em' }}>{room.invite_code}</span>
+              </div>
+            </button>
+          ))
         )}
       </div>
     </div>
