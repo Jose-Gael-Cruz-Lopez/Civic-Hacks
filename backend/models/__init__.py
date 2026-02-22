@@ -66,6 +66,19 @@ class StudyBlockBody(BaseModel):
     user_id: str = "user_john"
 
 
+class SyncBody(BaseModel):
+    user_id: str = "user_john"
+
+
+class ImportSaveBody(BaseModel):
+    """
+    Used when the user selects Google Calendar events they want saved
+    as Sapling assignments. The frontend maps Google event fields to
+    AssignmentItem shape before posting here.
+    """
+    assignments: list[AssignmentItem]
+
+
 # ── Social ────────────────────────────────────────────────────────────────────
 
 class CreateRoomBody(BaseModel):
@@ -83,9 +96,7 @@ class MatchBody(BaseModel):
 
 
 class ExportBody(BaseModel):
-    user_id: str = "user_john"
+    # No default — caller must always supply the real user_id.
+    # Prevents accidental exports under the wrong account.
+    user_id: str
     assignment_ids: list[str]
-
-
-class SyncBody(BaseModel):
-    user_id: str = "user_john"
