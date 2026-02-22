@@ -1,21 +1,21 @@
 import { GraphNode, GraphEdge } from './types';
 
-// Space-themed glow palette
+// Forest green / light theme palette
 export const MASTERY_COLORS: Record<string, string> = {
-  mastered:     '#22d3ee', // cyan
-  learning:     '#fbbf24', // amber
-  struggling:   '#f87171', // coral-red
-  unexplored:   '#475569', // dark slate
-  subject_root: '#818cf8', // indigo — hub nodes
+  mastered:     '#16a34a', // forest green
+  learning:     '#d97706', // amber
+  struggling:   '#dc2626', // red
+  unexplored:   '#6b7280', // gray
+  subject_root: '#7c3aed', // purple — hub nodes
 };
 
 // Lighter centre colour for the radial gradient inside each node
 export const MASTERY_HIGHLIGHT_COLORS: Record<string, string> = {
-  mastered:     '#a5f3fc',
+  mastered:     '#86efac',
   learning:     '#fde68a',
   struggling:   '#fca5a5',
-  unexplored:   '#94a3b8',
-  subject_root: '#c7d2fe',
+  unexplored:   '#e2e8f0',
+  subject_root: '#ddd6fe',
 };
 
 export function getMasteryColor(tier: string): string {

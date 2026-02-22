@@ -11,8 +11,8 @@ import { useUser } from '@/context/UserContext';
 type Filter = 'all' | 'mastered' | 'learning' | 'struggling' | 'unexplored';
 
 const GLASS = {
-  background: '#0c1525',
-  border: '1px solid rgba(148, 163, 184, 0.1)',
+  background: '#ffffff',
+  border: '1px solid rgba(107, 114, 128, 0.15)',
 } as const;
 
 export default function TreePage() {
@@ -96,8 +96,8 @@ export default function TreePage() {
             fontSize: '13px',
             outline: 'none',
             width: '180px',
-            background: 'rgba(15,23,42,0.7)',
-            color: '#f1f5f9',
+            background: '#ffffff',
+            color: '#111827',
           }}
         />
         <div style={{ display: 'flex', gap: '4px' }}>
@@ -109,10 +109,10 @@ export default function TreePage() {
                 onClick={() => setFilter(f.value)}
                 style={{
                   padding: '4px 11px',
-                  border: active ? '1px solid rgba(34,211,238,0.45)' : '1px solid rgba(148,163,184,0.12)',
+                  border: active ? '1px solid rgba(26,92,42,0.4)' : '1px solid rgba(107,114,128,0.18)',
                   borderRadius: '5px',
-                  background: active ? 'rgba(34,211,238,0.12)' : 'transparent',
-                  color: active ? '#22d3ee' : '#64748b',
+                  background: active ? 'rgba(26,92,42,0.08)' : 'transparent',
+                  color: active ? '#1a5c2a' : '#6b7280',
                   fontSize: '12px',
                   cursor: 'pointer',
                   fontWeight: active ? 600 : 400,
@@ -123,7 +123,7 @@ export default function TreePage() {
             );
           })}
         </div>
-        <span style={{ fontSize: '12px', color: '#334155' }}>{filteredNodes.length} nodes</span>
+        <span style={{ fontSize: '12px', color: '#9ca3af' }}>{filteredNodes.length} nodes</span>
       </div>
 
       {/* Node detail panel */}
@@ -147,7 +147,7 @@ export default function TreePage() {
           zIndex: 10,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f5f9', margin: 0 }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>
               {selectedNode.concept_name}
             </h2>
             <button
@@ -159,18 +159,18 @@ export default function TreePage() {
           </div>
 
           <div>
-            <p style={{ fontSize: '11px', color: '#475569', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</p>
-            <p style={{ fontSize: '14px', color: '#94a3b8' }}>{selectedNode.subject}</p>
+            <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</p>
+            <p style={{ fontSize: '14px', color: '#374151' }}>{selectedNode.subject}</p>
           </div>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <p style={{ fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mastery</p>
+              <p style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mastery</p>
               <span style={{ fontSize: '13px', color: getMasteryColor(selectedNode.mastery_tier), fontWeight: 600 }}>
                 {getMasteryLabel(selectedNode.mastery_score)}
               </span>
             </div>
-            <div style={{ background: 'rgba(15,23,42,0.8)', borderRadius: '4px', height: '5px', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(107,114,128,0.15)', borderRadius: '4px', height: '5px', overflow: 'hidden' }}>
               <div style={{
                 background: getMasteryColor(selectedNode.mastery_tier),
                 boxShadow: `0 0 8px ${getMasteryColor(selectedNode.mastery_tier)}`,
@@ -184,17 +184,17 @@ export default function TreePage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', color: '#475569' }}>Last studied</span>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{formatRelativeTime(selectedNode.last_studied_at)}</span>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>Last studied</span>
+              <span style={{ fontSize: '12px', color: '#374151' }}>{formatRelativeTime(selectedNode.last_studied_at)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', color: '#475569' }}>Times studied</span>
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{selectedNode.times_studied}</span>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>Times studied</span>
+              <span style={{ fontSize: '12px', color: '#374151' }}>{selectedNode.times_studied}</span>
             </div>
           </div>
 
           <div>
-            <p style={{ fontSize: '11px', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Connected to</p>
+            <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Connected to</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {allEdges
                 .filter(e => e.source === selectedNode.id || e.target === selectedNode.id)
@@ -210,7 +210,7 @@ export default function TreePage() {
                         border: 'none',
                         textAlign: 'left',
                         fontSize: '13px',
-                        color: '#94a3b8',
+                        color: '#374151',
                         cursor: 'pointer',
                         padding: '3px 0',
                       }}
@@ -228,14 +228,13 @@ export default function TreePage() {
               onClick={() => router.push(`/learn?topic=${encodeURIComponent(selectedNode.concept_name)}`)}
               style={{
                 padding: '9px',
-                background: 'rgba(34,211,238,0.12)',
-                color: '#22d3ee',
-                border: '1px solid rgba(34,211,238,0.35)',
+                background: 'rgba(26,92,42,0.08)',
+                color: '#1a5c2a',
+                border: '1px solid rgba(26,92,42,0.3)',
                 borderRadius: '7px',
                 fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                boxShadow: '0 0 16px rgba(34,211,238,0.08)',
               }}
             >
               Learn This
@@ -244,9 +243,9 @@ export default function TreePage() {
               onClick={() => router.push(`/learn?topic=${encodeURIComponent(selectedNode.concept_name)}&mode=quiz`)}
               style={{
                 padding: '9px',
-                background: 'rgba(15,23,42,0.6)',
-                color: '#94a3b8',
-                border: '1px solid rgba(148,163,184,0.15)',
+                background: '#f8faf8',
+                color: '#4b5563',
+                border: '1px solid rgba(107,114,128,0.18)',
                 borderRadius: '7px',
                 fontSize: '13px',
                 cursor: 'pointer',

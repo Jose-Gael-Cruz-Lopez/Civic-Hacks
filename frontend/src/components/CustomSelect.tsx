@@ -65,12 +65,12 @@ export default function CustomSelect({ value, onChange, options, placeholder, st
               top: dropRect.bottom + 4,
               left: dropRect.left,
               minWidth: Math.max(dropRect.width, compact ? 120 : 140),
-              background: '#0d1b2e',
-              border: '1px solid rgba(148,163,184,0.18)',
+              background: '#ffffff',
+              border: '1px solid rgba(107,114,128,0.18)',
               borderRadius: '10px',
               overflow: 'hidden',
               zIndex: 9999,
-              boxShadow: '0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.3)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.1), 0 0 0 1px rgba(107,114,128,0.08)',
             }}
           >
             {options.map(opt => (
@@ -82,8 +82,8 @@ export default function CustomSelect({ value, onChange, options, placeholder, st
                   display: 'block',
                   width: '100%',
                   padding: compact ? '6px 10px' : '8px 12px',
-                  background: opt.value === value ? 'rgba(34,211,238,0.1)' : 'transparent',
-                  color: opt.value === value ? '#22d3ee' : '#94a3b8',
+                  background: opt.value === value ? 'rgba(26,92,42,0.08)' : 'transparent',
+                  color: opt.value === value ? '#1a5c2a' : '#374151',
                   fontSize,
                   cursor: 'pointer',
                   border: 'none',
@@ -94,14 +94,14 @@ export default function CustomSelect({ value, onChange, options, placeholder, st
                 }}
                 onMouseEnter={e => {
                   if (opt.value !== value) {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(148,163,184,0.08)';
-                    (e.currentTarget as HTMLButtonElement).style.color = '#cbd5e1';
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(26,92,42,0.05)';
+                    (e.currentTarget as HTMLButtonElement).style.color = '#111827';
                   }
                 }}
                 onMouseLeave={e => {
                   if (opt.value !== value) {
                     (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                    (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8';
+                    (e.currentTarget as HTMLButtonElement).style.color = '#374151';
                   }
                 }}
               >
@@ -121,10 +121,10 @@ export default function CustomSelect({ value, onChange, options, placeholder, st
         style={{
           width: '100%',
           padding,
-          background: '#0c1525',
-          border: `1px solid rgba(148,163,184,${open ? '0.28' : '0.15'})`,
+          background: '#ffffff',
+          border: `1px solid rgba(107,114,128,${open ? '0.35' : '0.2'})`,
           borderRadius: '8px',
-          color: selected ? '#e2e8f0' : '#4b6280',
+          color: selected ? '#111827' : '#9ca3af',
           fontSize,
           cursor: 'pointer',
           display: 'flex',
@@ -134,7 +134,7 @@ export default function CustomSelect({ value, onChange, options, placeholder, st
           outline: 'none',
           fontFamily: 'inherit',
           transition: 'border-color 0.15s',
-          boxShadow: open ? '0 0 0 2px rgba(34,211,238,0.08)' : 'none',
+          boxShadow: open ? '0 0 0 3px rgba(26,92,42,0.1)' : 'none',
         }}
       >
         <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
@@ -143,7 +143,7 @@ export default function CustomSelect({ value, onChange, options, placeholder, st
         <span
           style={{
             fontSize: '8px',
-            color: '#4b6280',
+            color: '#9ca3af',
             transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s ease',
             display: 'inline-block',

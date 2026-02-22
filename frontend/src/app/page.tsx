@@ -17,8 +17,8 @@ const STATS_LABELS: Record<string, string> = {
 };
 
 const GLASS: React.CSSProperties = {
-  background: '#0c1525',
-  border: '1px solid rgba(148, 163, 184, 0.1)',
+  background: '#ffffff',
+  border: '1px solid rgba(107, 114, 128, 0.15)',
   borderRadius: '10px',
 };
 
@@ -86,7 +86,7 @@ export default function Dashboard() {
           }}
         >
           {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#334155', fontSize: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: '14px' }}>
               Loading graph…
             </div>
           ) : (
@@ -104,24 +104,24 @@ export default function Dashboard() {
         {/* Upcoming assignments */}
         <div style={{ ...GLASS, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Upcoming
             </p>
-            <Link href="/calendar" style={{ fontSize: '12px', color: '#64748b', textDecoration: 'none' }}>
+            <Link href="/calendar" style={{ fontSize: '12px', color: '#6b7280', textDecoration: 'none' }}>
               View Calendar
             </Link>
           </div>
           {assignments.length === 0 ? (
-            <p style={{ color: '#334155', fontSize: '13px' }}>No upcoming assignments</p>
+            <p style={{ color: '#9ca3af', fontSize: '13px' }}>No upcoming assignments</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {assignments.map(a => (
                 <div key={a.id} style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                  <span style={{ fontSize: '12px', color: '#475569', minWidth: '50px' }}>
+                  <span style={{ fontSize: '12px', color: '#6b7280', minWidth: '50px' }}>
                     {formatDueDate(a.due_date)}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>{a.course_name}</span>
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{a.title}</span>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>{a.course_name}</span>
+                  <span style={{ fontSize: '13px', color: '#374151' }}>{a.title}</span>
                 </div>
               ))}
             </div>
@@ -134,8 +134,8 @@ export default function Dashboard() {
 
         {/* User header */}
         <div style={{ ...GLASS, padding: '16px' }}>
-          <p style={{ fontSize: '15px', fontWeight: 600, color: '#f1f5f9' }}>{userName}</p>
-          <p style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{userName}</p>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
             {stats?.streak ?? 0} day streak
           </p>
         </div>
@@ -143,7 +143,7 @@ export default function Dashboard() {
         {/* Stats */}
         {stats && (
           <div style={{ ...GLASS, padding: '16px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px' }}>
               Knowledge
             </p>
             {(['mastered', 'learning', 'struggling', 'unexplored'] as const).map(tier => (
@@ -151,10 +151,9 @@ export default function Dashboard() {
                 <div style={{
                   width: 9, height: 9, borderRadius: '50%',
                   background: getMasteryColor(tier),
-                  boxShadow: `0 0 6px ${getMasteryColor(tier)}`,
                   flexShrink: 0,
                 }} />
-                <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                <span style={{ fontSize: '13px', color: '#374151' }}>
                   {stats[tier]} {STATS_LABELS[tier]}
                 </span>
               </div>
@@ -165,7 +164,7 @@ export default function Dashboard() {
         {/* Recommendations */}
         {recommendations.length > 0 && (
           <div style={{ ...GLASS, padding: '16px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
               Learn Next
             </p>
             {recommendations.map(rec => {
@@ -179,12 +178,12 @@ export default function Dashboard() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '8px 0',
-                    borderBottom: '1px solid rgba(148,163,184,0.07)',
+                    borderBottom: '1px solid rgba(107,114,128,0.1)',
                     textDecoration: 'none',
                   }}
                 >
-                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{rec.concept_name}</span>
-                  <span style={{ fontSize: '12px', color: '#475569' }}>
+                  <span style={{ fontSize: '13px', color: '#374151' }}>{rec.concept_name}</span>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
                     {node ? getMasteryLabel(node.mastery_score) : '0%'}
                   </span>
                 </Link>
@@ -201,14 +200,13 @@ export default function Dashboard() {
               display: 'block',
               textAlign: 'center',
               padding: '10px',
-              background: 'rgba(34,211,238,0.1)',
-              border: '1px solid rgba(34,211,238,0.35)',
+              background: 'rgba(26,92,42,0.08)',
+              border: '1px solid rgba(26,92,42,0.3)',
               borderRadius: '7px',
-              color: '#22d3ee',
+              color: '#1a5c2a',
               fontSize: '14px',
               fontWeight: 600,
               textDecoration: 'none',
-              boxShadow: '0 0 18px rgba(34,211,238,0.08)',
             }}
           >
             Start Learning
@@ -219,10 +217,10 @@ export default function Dashboard() {
               display: 'block',
               textAlign: 'center',
               padding: '10px',
-              background: 'rgba(15,23,42,0.5)',
-              border: '1px solid rgba(148,163,184,0.13)',
+              background: '#f8faf8',
+              border: '1px solid rgba(107,114,128,0.18)',
               borderRadius: '7px',
-              color: '#94a3b8',
+              color: '#4b5563',
               fontSize: '14px',
               textDecoration: 'none',
             }}
@@ -235,7 +233,7 @@ export default function Dashboard() {
               display: 'block',
               textAlign: 'center',
               padding: '6px',
-              color: '#475569',
+              color: '#6b7280',
               fontSize: '13px',
               textDecoration: 'none',
             }}
@@ -247,7 +245,7 @@ export default function Dashboard() {
         {/* Recent activity */}
         {nodes.length > 0 && (
           <div style={{ ...GLASS, padding: '16px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
               Recent Activity
             </p>
             {nodes
@@ -256,10 +254,10 @@ export default function Dashboard() {
               .slice(0, 4)
               .map(n => (
                 <div key={n.id} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '7px' }}>
-                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  <span style={{ fontSize: '12px', color: '#374151' }}>
                     {n.concept_name} — {getMasteryLabel(n.mastery_score)}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#334155', marginLeft: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px', flexShrink: 0 }}>
                     {formatRelativeTime(n.last_studied_at)}
                   </span>
                 </div>

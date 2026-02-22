@@ -181,8 +181,8 @@ function LearnInner() {
     <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div style={{
-        background: '#04080f',
-        borderBottom: '1px solid rgba(148,163,184,0.1)',
+        background: '#f0f5f0',
+        borderBottom: '1px solid rgba(107,114,128,0.12)',
         padding: '0 20px',
         height: '52px',
         display: 'flex',
@@ -190,7 +190,7 @@ function LearnInner() {
         gap: '16px',
         flexShrink: 0,
       }}>
-        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
+        <Link href="/" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
           ←
         </Link>
 
@@ -218,19 +218,19 @@ function LearnInner() {
 
         {topic && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {topic !== selectedCourse && <span style={{ fontSize: '13px', color: '#475569' }}>→</span>}
-            <span style={{ fontSize: '14px', fontWeight: 500, color: '#f1f5f9' }}>
+            {topic !== selectedCourse && <span style={{ fontSize: '13px', color: '#6b7280' }}>→</span>}
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
               {topic !== selectedCourse ? topic : ''}
             </span>
             {topicNode && (
-              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>
                 {getMasteryLabel(topicNode.mastery_score)}
               </span>
             )}
           </div>
         )}
 
-        {sessionLoading && <span style={{ fontSize: '13px', color: '#94a3b8' }}>Starting…</span>}
+        {sessionLoading && <span style={{ fontSize: '13px', color: '#6b7280' }}>Starting…</span>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
           <ModeSelector
@@ -245,7 +245,7 @@ function LearnInner() {
 
       {/* Main split */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <div style={{ flex: 1, borderRight: '1px solid rgba(148,163,184,0.08)', overflow: 'hidden' }}>
+        <div style={{ flex: 1, borderRight: '1px solid rgba(107,114,128,0.12)', overflow: 'hidden' }}>
           {quizMode ? (
             <div style={{ height: '100%', overflow: 'auto' }}>
               <QuizPanel
@@ -303,7 +303,7 @@ function LearnInner() {
 
 export default function LearnPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, color: '#94a3b8' }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 40, color: '#9ca3af' }}>Loading...</div>}>
       <LearnInner />
     </Suspense>
   );

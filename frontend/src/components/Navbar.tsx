@@ -20,10 +20,10 @@ export default function Navbar() {
   return (
     <nav
       style={{
-        background: 'rgba(3, 7, 18, 0.75)',
+        background: 'rgba(255, 255, 255, 0.92)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(148, 163, 184, 0.08)',
+        borderBottom: '1px solid rgba(107, 114, 128, 0.12)',
         padding: '0 24px',
         display: 'flex',
         alignItems: 'center',
@@ -37,9 +37,9 @@ export default function Navbar() {
       <span style={{
         fontWeight: 700,
         fontSize: '16px',
-        color: '#22d3ee',
+        color: '#1a5c2a',
         letterSpacing: '-0.02em',
-        textShadow: '0 0 18px rgba(34, 211, 238, 0.55)',
+        textShadow: '0 0 12px rgba(26, 92, 42, 0.2)',
       }}>
         Sapling
       </span>
@@ -54,11 +54,11 @@ export default function Navbar() {
               style={{
                 padding: '4px 12px',
                 fontSize: '13px',
-                color: active ? '#f1f5f9' : '#64748b',
+                color: active ? '#111827' : '#6b7280',
                 fontWeight: active ? 500 : 400,
                 textDecoration: 'none',
                 borderRadius: '5px',
-                borderBottom: active ? '2px solid rgba(34, 211, 238, 0.65)' : '2px solid transparent',
+                borderBottom: active ? '2px solid rgba(26, 92, 42, 0.7)' : '2px solid transparent',
               }}
             >
               {link.label}

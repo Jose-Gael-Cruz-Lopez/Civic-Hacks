@@ -74,9 +74,9 @@ export default function SocialPage() {
     background: 'none',
     border: 'none',
     fontSize: '14px',
-    color: tab === t ? '#f1f5f9' : '#475569',
+    color: tab === t ? '#111827' : '#6b7280',
     fontWeight: tab === t ? 500 : 400 as const,
-    borderBottom: tab === t ? '2px solid rgba(34,211,238,0.65)' : '2px solid transparent',
+    borderBottom: tab === t ? '2px solid rgba(26,92,42,0.7)' : '2px solid transparent',
     cursor: 'pointer',
     padding: '8px 0',
     marginRight: '20px',
@@ -85,7 +85,7 @@ export default function SocialPage() {
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 48px)' }}>
       {/* Left sidebar */}
-      <div style={{ width: '240px', background: '#070f1d', borderRight: '1px solid rgba(148,163,184,0.08)', overflowY: 'auto' }}>
+      <div style={{ width: '240px', background: '#f2f7f2', borderRight: '1px solid rgba(107,114,128,0.12)', overflowY: 'auto' }}>
         <RoomList
           rooms={rooms}
           activeRoomId={activeRoomId}
@@ -100,7 +100,7 @@ export default function SocialPage() {
         {activeRoomId ? (
           <>
             {/* Tabs */}
-            <div style={{ background: '#040912', borderBottom: '1px solid rgba(148,163,184,0.08)', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ background: '#f0f5f0', borderBottom: '1px solid rgba(107,114,128,0.12)', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
               <button style={tabStyle('overview')} onClick={() => setTab('overview')}>Overview</button>
               <button style={tabStyle('match')} onClick={() => setTab('match')}>Study Match</button>
               <button style={tabStyle('activity')} onClick={() => setTab('activity')}>Activity</button>
@@ -110,7 +110,7 @@ export default function SocialPage() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
               {tab === 'overview' && (
                 overviewLoading ? (
-                  <p style={{ color: '#475569', fontSize: '14px' }}>Loading...</p>
+                  <p style={{ color: '#9ca3af', fontSize: '14px' }}>Loading...</p>
                 ) : overviewData ? (
                   <RoomOverview
                     room={overviewData.room}
@@ -132,17 +132,17 @@ export default function SocialPage() {
               {tab === 'activity' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {activity.length === 0 ? (
-                    <p style={{ color: '#475569', fontSize: '14px' }}>No activity yet.</p>
+                    <p style={{ color: '#9ca3af', fontSize: '14px' }}>No activity yet.</p>
                   ) : (
                     activity.map(a => (
                       <div key={a.id} style={{ display: 'flex', gap: '8px', alignItems: 'baseline', padding: '6px 0', borderBottom: '1px solid rgba(148,163,184,0.06)' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 500, color: '#f1f5f9', minWidth: '60px' }}>{a.user_name}</span>
-                        <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827', minWidth: '60px' }}>{a.user_name}</span>
+                        <span style={{ fontSize: '13px', color: '#4b5563' }}>
                           {a.activity_type}
                           {a.concept_name && ` ${a.concept_name}`}
                           {a.detail && ` — ${a.detail}`}
                         </span>
-                        <span style={{ fontSize: '11px', color: '#475569', marginLeft: 'auto', flexShrink: 0 }}>
+                        <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: 'auto', flexShrink: 0 }}>
                           {formatActivityTime(a.created_at)}
                         </span>
                       </div>
@@ -153,7 +153,7 @@ export default function SocialPage() {
             </div>
           </>
         ) : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: '14px' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '14px' }}>
             Create or join a room to get started.
           </div>
         )}

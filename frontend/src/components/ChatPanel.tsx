@@ -16,7 +16,7 @@ interface Props {
 const MODE_DESCRIPTIONS: Record<TeachingMode, string> = {
   socratic: 'Asking questions to guide your thinking',
   expository: 'Explaining, then checking understanding',
-  teachback: 'You teach me — I\'ll play confused',
+  teachback: "You teach me — I'll play confused",
 };
 
 export default function ChatPanel({ messages, onSend, onAction, onEndSession, loading, mode }: Props) {
@@ -35,54 +35,31 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#060d1b' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
       {/* Mode description */}
-      <div style={{
-        padding: '10px 16px',
-        borderBottom: '1px solid rgba(148,163,184,0.08)',
-        color: '#475569',
-        fontSize: '12px',
-        background: '#04080f',
-      }}>
+      <div className="topbar" style={{ padding: '10px 16px', fontSize: '12px', color: 'var(--text-dim)' }}>
         {MODE_DESCRIPTIONS[mode]}
       </div>
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {messages.map(msg => (
-          <div
-            key={msg.id}
-            style={{
-              display: 'flex',
-              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-            }}
-          >
-            <div
-              style={{
-                maxWidth: '80%',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                background: msg.role === 'user'
-                  ? '#0e2535'
-                  : '#0c1525',
-                color: '#f1f5f9',
-                fontSize: '15px',
-                lineHeight: 1.6,
-                border: msg.role === 'user'
-                  ? '1px solid rgba(34,211,238,0.2)'
-                  : '1px solid rgba(148,163,184,0.1)',
-              }}
-            >
-              {msg.role === 'user' ? (
-                msg.content
-              ) : (
+          <div key={msg.id} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{
+              maxWidth: '80%',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: msg.role === 'user' ? 'var(--accent-dim)' : 'var(--bg-panel)',
+              color: 'var(--text)',
+              fontSize: '15px',
+              lineHeight: 1.6,
+              border: msg.role === 'user' ? '1px solid var(--accent-border)' : '1px solid var(--border)',
+            }}>
+              {msg.role === 'user' ? msg.content : (
                 <ReactMarkdown
                   components={{
                     p: ({ children }) => <p style={{ margin: 0, marginBottom: '6px' }}>{children}</p>,
@@ -90,16 +67,16 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
                     ol: ({ children }) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ol>,
                     li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
                     code: ({ children }) => (
-                      <code style={{ background: 'rgba(15,23,42,0.8)', borderRadius: '3px', padding: '1px 4px', fontSize: '13px', fontFamily: 'monospace', color: '#22d3ee' }}>
+                      <code style={{ background: 'var(--accent-dim)', borderRadius: '3px', padding: '1px 4px', fontSize: '13px', fontFamily: 'monospace', color: 'var(--accent)' }}>
                         {children}
                       </code>
                     ),
                     pre: ({ children }) => (
-                      <pre style={{ background: 'rgba(3,7,18,0.8)', color: '#f1f5f9', borderRadius: '6px', padding: '10px', overflowX: 'auto', fontSize: '13px', margin: '0 0 8px 0', border: '1px solid rgba(148,163,184,0.1)' }}>
+                      <pre style={{ background: 'var(--bg-subtle)', color: 'var(--text)', borderRadius: '6px', padding: '10px', overflowX: 'auto', fontSize: '13px', margin: '0 0 8px 0', border: '1px solid var(--border)' }}>
                         {children}
                       </pre>
                     ),
-                    strong: ({ children }) => <strong style={{ fontWeight: 600, color: '#f1f5f9' }}>{children}</strong>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 600, color: 'var(--text)' }}>{children}</strong>,
                   }}
                 >
                   {msg.content}
@@ -111,16 +88,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
 
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <div
-              style={{
-                padding: '10px 14px',
-                borderRadius: '8px',
-                background: '#0c1525',
-                border: '1px solid rgba(148,163,184,0.1)',
-                color: '#475569',
-                fontSize: '15px',
-              }}
-            >
+            <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: '15px' }}>
               ...
             </div>
           </div>
@@ -129,7 +97,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
       </div>
 
       {/* Input area */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(148,163,184,0.08)', background: '#04080f' }}>
+      <div className="topbar" style={{ padding: '12px 16px' }}>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
           <textarea
             value={input}
@@ -137,34 +105,14 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
             onKeyDown={handleKey}
             placeholder="Type your answer..."
             rows={2}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              border: '1px solid rgba(148,163,184,0.15)',
-              borderRadius: '6px',
-              fontSize: '14px',
-              color: '#f1f5f9',
-              background: '#0c1525',
-              resize: 'none',
-              outline: 'none',
-              fontFamily: 'inherit',
-            }}
+            className="input"
+            style={{ flex: 1, resize: 'none' }}
           />
           <button
             onClick={send}
             disabled={loading || !input.trim()}
-            style={{
-              padding: '8px 16px',
-              background: 'rgba(34,211,238,0.1)',
-              color: '#22d3ee',
-              border: '1px solid rgba(34,211,238,0.3)',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading || !input.trim() ? 0.4 : 1,
-              alignSelf: 'flex-end',
-            }}
+            className="btn-accent"
+            style={{ alignSelf: 'flex-end', opacity: loading || !input.trim() ? 0.4 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
           >
             Send
           </button>
@@ -172,34 +120,14 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {(['hint', 'confused', 'skip'] as const).map(action => (
-            <button
-              key={action}
-              onClick={() => onAction(action)}
-              disabled={loading}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#475569',
-                fontSize: '12px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                padding: '2px 0',
-                textTransform: 'capitalize',
-              }}
+            <button key={action} onClick={() => onAction(action)} disabled={loading}
+              style={{ background: 'none', border: 'none', color: 'var(--text-dim)', fontSize: '12px', cursor: loading ? 'not-allowed' : 'pointer', padding: '2px 0', textTransform: 'capitalize', fontFamily: 'inherit' }}
             >
               {action}
             </button>
           ))}
-          <button
-            onClick={onEndSession}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(248,113,113,0.7)',
-              fontSize: '12px',
-              cursor: 'pointer',
-              padding: '2px 0',
-              marginLeft: 'auto',
-            }}
+          <button onClick={onEndSession}
+            style={{ background: 'none', border: 'none', color: 'rgba(220,38,38,0.7)', fontSize: '12px', cursor: 'pointer', padding: '2px 0', marginLeft: 'auto', fontFamily: 'inherit' }}
           >
             End Session
           </button>

@@ -27,13 +27,14 @@ export default function ModeSelector({ mode, onChange, showQuiz, quizActive, onT
             style={{
               padding: '4px 10px',
               fontSize: '13px',
-              color: mode === m.value ? '#f1f5f9' : '#475569',
+              color: mode === m.value ? 'var(--text)' : 'var(--text-dim)',
               fontWeight: mode === m.value ? 600 : 400,
               background: 'none',
               border: 'none',
-              borderBottom: mode === m.value ? '2px solid rgba(34,211,238,0.65)' : '2px solid transparent',
+              borderBottom: mode === m.value ? '2px solid var(--accent-active)' : '2px solid transparent',
               cursor: 'pointer',
               letterSpacing: '-0.01em',
+              fontFamily: 'inherit',
             }}
           >
             {m.label}
@@ -47,12 +48,13 @@ export default function ModeSelector({ mode, onChange, showQuiz, quizActive, onT
           style={{
             padding: '4px 12px',
             fontSize: '13px',
-            color: quizActive ? '#22d3ee' : '#94a3b8',
-            background: quizActive ? 'rgba(34,211,238,0.1)' : 'none',
-            border: quizActive ? '1px solid rgba(34,211,238,0.35)' : '1px solid rgba(148,163,184,0.2)',
+            color: quizActive ? 'var(--accent)' : 'var(--text-dim)',
+            background: quizActive ? 'var(--accent-dim)' : 'none',
+            border: quizActive ? '1px solid var(--accent-border)' : '1px solid var(--border)',
             borderRadius: '4px',
             cursor: 'pointer',
             fontWeight: 500,
+            fontFamily: 'inherit',
           }}
         >
           Quiz

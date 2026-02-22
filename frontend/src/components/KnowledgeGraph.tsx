@@ -154,7 +154,7 @@ export default function KnowledgeGraph({
       .data(simLinks, d => d.id)
       .enter()
       .append('line')
-      .attr('stroke', 'rgba(148,163,184,0.13)')
+      .attr('stroke', 'rgba(107,114,128,0.2)')
       .attr('stroke-width', d => 0.5 + d.strength * 1.2)
       .attr('stroke-linecap', 'round');
 
@@ -200,7 +200,7 @@ export default function KnowledgeGraph({
         .append('circle')
         .attr('r', d => getSimRadius(d) + 8)
         .attr('fill', 'none')
-        .attr('stroke', 'rgba(34,211,238,0.45)')
+        .attr('stroke', 'rgba(26,92,42,0.5)')
         .attr('stroke-width', 1.5)
         .attr('opacity', 0.8);
     }
@@ -217,7 +217,7 @@ export default function KnowledgeGraph({
       .attr('r', d => getSimRadius(d))
       .attr('fill', d => `url(#grad-${d.mastery_tier})`)
       .attr('filter', d => `url(#glow-${d.mastery_tier})`)
-      .attr('stroke', d => d.is_subject_root ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.18)')
+      .attr('stroke', d => d.is_subject_root ? 'rgba(26,92,42,0.5)' : 'rgba(26,92,42,0.25)')
       .attr('stroke-width', d => d.is_subject_root ? 2 : 1);
 
     if (animate) {
@@ -249,7 +249,7 @@ export default function KnowledgeGraph({
       .attr('font-size', d => d.is_subject_root ? '13px' : '11px')
       .attr('font-weight', d => d.is_subject_root ? '600' : '400')
       .attr('font-family', 'Inter, system-ui, sans-serif')
-      .attr('fill', d => d.is_subject_root ? '#c7d2fe' : '#64748b')
+      .attr('fill', d => d.is_subject_root ? '#4a1d96' : '#374151')
       .attr('pointer-events', 'none')
       .style('user-select', 'none');
 
@@ -266,16 +266,16 @@ export default function KnowledgeGraph({
             ? new Date(sourceNode.last_studied_at).toLocaleDateString()
             : 'Never';
           tooltip.innerHTML = `
-            <div style="font-weight:600;color:#f1f5f9;margin-bottom:4px">${sourceNode.concept_name}</div>
+            <div style="font-weight:600;color:#111827;margin-bottom:4px">${sourceNode.concept_name}</div>
             <div style="color:${getMasteryColor(sourceNode.mastery_tier)};font-size:12px;margin-bottom:2px">${mastery}% mastery</div>
-            <div style="color:#64748b;font-size:12px">Last studied: ${lastStudied}</div>
+            <div style="color:#6b7280;font-size:12px">Last studied: ${lastStudied}</div>
           `;
           tooltip.style.display = 'block';
           const rect = svgRef.current!.getBoundingClientRect();
           tooltip.style.left = `${event.clientX - rect.left + 14}px`;
           tooltip.style.top = `${event.clientY - rect.top - 12}px`;
           d3.select(this).select('circle:last-of-type')
-            .attr('stroke', 'rgba(255,255,255,0.65)').attr('stroke-width', 2);
+            .attr('stroke', 'rgba(26,92,42,0.7)').attr('stroke-width', 2);
         })
         .on('mousemove', function(event) {
           if (!tooltip || !svgRef.current) return;
@@ -286,7 +286,7 @@ export default function KnowledgeGraph({
         .on('mouseout', function(_, d) {
           if (tooltip) tooltip.style.display = 'none';
           d3.select(this).select('circle:last-of-type')
-            .attr('stroke', (d as SimNode).is_subject_root ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.18)')
+            .attr('stroke', (d as SimNode).is_subject_root ? 'rgba(26,92,42,0.5)' : 'rgba(26,92,42,0.25)')
             .attr('stroke-width', (d as SimNode).is_subject_root ? 2 : 1);
         })
         .on('click', (_, d) => {
@@ -342,15 +342,15 @@ export default function KnowledgeGraph({
           style={{
             display: 'none',
             position: 'absolute',
-            background: 'rgba(8, 13, 30, 0.88)',
+            background: 'rgba(255, 255, 255, 0.97)',
             backdropFilter: 'blur(14px)',
             WebkitBackdropFilter: 'blur(14px)',
-            border: '1px solid rgba(148, 163, 184, 0.14)',
+            border: '1px solid rgba(107, 114, 128, 0.18)',
             borderRadius: '8px',
             padding: '10px 12px',
             fontSize: '13px',
             pointerEvents: 'none',
-            boxShadow: '0 0 24px rgba(34, 211, 238, 0.08)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             zIndex: 10,
             maxWidth: '200px',
           }}

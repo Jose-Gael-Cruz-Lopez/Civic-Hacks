@@ -1,19 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --bg-space: #030712;
-  --bg-glass: rgba(10, 15, 35, 0.6);
-  --border-glass: rgba(148, 163, 184, 0.1);
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-dim: #475569;
-  --accent: #22d3ee;
-  --accent-glow: rgba(34, 211, 238, 0.25);
+  /* Backgrounds */
+  --bg:         #f5f9f5;
+  --bg-panel:   #ffffff;
+  --bg-sidebar: #f2f7f2;
+  --bg-topbar:  #f0f5f0;
+  --bg-input:   #ffffff;
+  --bg-subtle:  #f8faf8;
+
+  /* Forest green accent */
+  --accent:        #1a5c2a;
+  --accent-dim:    rgba(26, 92, 42, 0.08);
+  --accent-border: rgba(26, 92, 42, 0.3);
+  --accent-active: rgba(26, 92, 42, 0.7);
+
+  /* Text */
+  --text:             #111827;
+  --text-secondary:   #374151;
+  --text-muted:       #4b5563;
+  --text-dim:         #6b7280;
+  --text-placeholder: #9ca3af;
+
+  /* Borders */
+  --border:       rgba(107, 114, 128, 0.18);
+  --border-light: rgba(107, 114, 128, 0.1);
+  --border-mid:   rgba(107, 114, 128, 0.25);
+
+  /* Legacy aliases for any remaining references */
+  --bg-space:   #f5f9f5;
+  --bg-glass:   rgba(240, 246, 240, 0.95);
+  --border-glass: rgba(107, 114, 128, 0.15);
+  --text-primary: #111827;
 }
 
 body {
-  background: var(--bg-space);
-  color: var(--text-primary);
+  background: var(--bg);
+  color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.6;
@@ -26,39 +49,149 @@ body {
 }
 
 ::selection {
-  background: rgba(34, 211, 238, 0.2);
-  color: #f1f5f9;
+  background: rgba(26, 92, 42, 0.15);
+  color: var(--text);
 }
 
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(26, 92, 42, 0.18);
   border-radius: 3px;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.3);
-}
+::-webkit-scrollbar-thumb:hover { background: rgba(26, 92, 42, 0.32); }
 
 code, pre {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 13px;
 }
 
-input, select, textarea {
-  color-scheme: dark;
+input, select, textarea { color-scheme: light; }
+
+/* ── Layout shells ──────────────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
 }
 
-/* Glass panel utility */
+.sidebar {
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-light);
+}
+
+.topbar {
+  background: var(--bg-topbar);
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* ── Text ───────────────────────────────────────────────── */
+.text-primary   { color: var(--text); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted     { color: var(--text-muted); }
+.text-dim       { color: var(--text-dim); }
+.text-accent    { color: var(--accent); }
+.text-placeholder { color: var(--text-placeholder); }
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-accent {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  border-radius: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.tab {
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-right: 20px;
+}
+.tab-active {
+  color: var(--text);
+  font-weight: 500;
+  border-bottom: 2px solid var(--accent-active);
+}
+.tab-inactive {
+  color: var(--text-dim);
+  font-weight: 400;
+  border-bottom: 2px solid transparent;
+}
+
+/* ── Pills / filter buttons ─────────────────────────────── */
+.pill {
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 11px;
+  font-weight: 400;
+}
+.pill-active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  font-weight: 600;
+}
+.pill-inactive {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+/* ── Text input ─────────────────────────────────────────── */
+.input {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.input:focus { border-color: var(--accent-border); }
+.input::placeholder { color: var(--text-placeholder); }
+
+/* ── Room list item ─────────────────────────────────────── */
+.room-item { border-left: 3px solid transparent; }
+.room-item-active {
+  border-left: 3px solid var(--accent-active);
+  background: var(--accent-dim);
+}
+
+/* ── Legacy alias ───────────────────────────────────────── */
 .glass {
-  background: #0c1525;
-  border: 1px solid var(--border-glass);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
 }
