@@ -1,24 +1,36 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Spectral, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { UserProvider } from '@/context/UserContext';
 import Navbar from '@/components/Navbar';
 import SpaceBackground from '@/components/SpaceBackground';
 
-const inter = Inter({
+const spectral = Spectral({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  style: ['normal', 'italic'],
+  variable: '--font-spectral',
+  display: 'swap',
+});
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-dm-sans',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
   title: 'Sapling',
   description: 'Learn through conversation. Watch your knowledge grow.',
+  icons: {
+    icon: '/sapling-icon.svg',
+    shortcut: '/sapling-icon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${spectral.variable} ${dmSans.variable}`}>
       <body>
         <SpaceBackground />
         <UserProvider>

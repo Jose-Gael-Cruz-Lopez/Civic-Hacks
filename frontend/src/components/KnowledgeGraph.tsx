@@ -224,7 +224,7 @@ function KnowledgeGraph({
       .attr('dy', d => d.is_subject_root ? getSimRadius(d) + 17 : getSimRadius(d) + 15)
       .attr('font-size', d => d.is_subject_root ? '13px' : '11px')
       .attr('font-weight', d => d.is_subject_root ? '600' : '400')
-      .attr('font-family', 'Inter, system-ui, sans-serif')
+      .attr('font-family', "'DM Sans', Inter, system-ui, sans-serif")
       .attr('fill', d => d.is_subject_root ? getCourseColor(d.subject).text : '#374151')
       .attr('pointer-events', 'none')
       .style('user-select', 'none');

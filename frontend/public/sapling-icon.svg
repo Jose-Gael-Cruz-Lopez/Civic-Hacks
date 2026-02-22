@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Stem -->
+  <path d="M32 54 L32 28" stroke="#1a5c2a" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Left leaf -->
+  <path d="M32 38 C32 38 18 34 16 22 C16 22 30 20 32 38Z" fill="#1a5c2a"/>
+  <!-- Right leaf -->
+  <path d="M32 30 C32 30 46 24 50 12 C50 12 36 12 32 30Z" fill="#2d8a47"/>
+  <!-- Small sprout tip -->
+  <circle cx="32" cy="26" r="2.5" fill="#1a5c2a"/>
+</svg>

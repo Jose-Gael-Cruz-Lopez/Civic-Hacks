@@ -24,6 +24,8 @@ const GLASS: React.CSSProperties = {
   borderRadius: '10px',
 };
 
+const UI_FONT = "var(--font-dm-sans), 'DM Sans', sans-serif";
+
 const QUOTES = [
   '"The more that you read, the more things you will know." — Dr. Seuss',
   '"Live as if you were to die tomorrow. Learn as if you were to live forever." — Gandhi',
@@ -42,9 +44,9 @@ const QUOTES = [
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Good morning';
-  if (hour >= 12 && hour < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (hour >= 5 && hour < 12) return 'Good Morning';
+  if (hour >= 12 && hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
 }
 
 export default function Dashboard() {
@@ -298,6 +300,7 @@ export default function Dashboard() {
             gap: '10px',
             padding: '20px 10px 20px 20px',
             overflowY: 'auto',
+            fontFamily: UI_FONT,
           }}
         >
           <p style={{
@@ -497,6 +500,7 @@ export default function Dashboard() {
                 opacity: greetingDone ? 1 : 0,
                 transition: 'opacity 0.7s ease',
                 minHeight: '22px',
+                fontFamily: UI_FONT,
               }}
             >
               {quote}
@@ -514,7 +518,8 @@ export default function Dashboard() {
                   fontWeight: 600,
                   textDecoration: 'none',
                   display: 'inline-block',
-                  letterSpacing: '0.01em',
+                  letterSpacing: '0.5px',
+                  fontFamily: UI_FONT,
                 }}
               >
                 Start Learning
@@ -530,8 +535,8 @@ export default function Dashboard() {
                   fontSize: '13px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  letterSpacing: '0.01em',
+                  fontFamily: UI_FONT,
+                  letterSpacing: '0.5px',
                 }}
               >
                 Upload Assignments
@@ -566,7 +571,7 @@ export default function Dashboard() {
           </div>
 
           {/* Upcoming assignments strip */}
-          <div style={{ ...GLASS, padding: '14px 16px' }}>
+          <div style={{ ...GLASS, padding: '14px 16px', fontFamily: UI_FONT }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 Upcoming
@@ -599,7 +604,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Right: Sidebar ──────────────────────────────────────────────── */}
-        <div className="dash-scroll" style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px 20px 20px 10px', overflowY: 'auto' }}>
+        <div className="dash-scroll" style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px 20px 20px 10px', overflowY: 'auto', fontFamily: UI_FONT }}>
 
           {/* User header + streak */}
           <div style={{ ...GLASS, padding: '16px' }}>

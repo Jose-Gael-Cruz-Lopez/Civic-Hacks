@@ -34,15 +34,18 @@ export default function Navbar() {
         zIndex: 50,
       }}
     >
-      <span style={{
-        fontWeight: 700,
-        fontSize: '16px',
-        color: '#1a5c2a',
-        letterSpacing: '-0.02em',
-        textShadow: '0 0 12px rgba(26, 92, 42, 0.2)',
-      }}>
-        Sapling
-      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <img src="/sapling-icon.svg" alt="Sapling" style={{ width: '32px', height: '32px' }} />
+        <span style={{
+          fontWeight: 700,
+          fontSize: '20px',
+          color: '#1a5c2a',
+          letterSpacing: '-0.02em',
+          textShadow: '0 0 12px rgba(26, 92, 42, 0.2)',
+        }}>
+          Sapling
+        </span>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
         {LINKS.map(link => {
@@ -55,11 +58,15 @@ export default function Navbar() {
               style={{
                 padding: '4px 12px',
                 fontSize: '13px',
-                color: active ? '#111827' : '#6b7280',
-                fontWeight: active ? 500 : 400,
+                color: active ? '#1a5c2a' : '#9ca3af',
+                fontWeight: active ? 600 : 400,
                 textDecoration: 'none',
                 borderRadius: '5px',
-                borderBottom: active ? '2px solid rgba(26, 92, 42, 0.7)' : '2px solid transparent',
+                borderBottom: 'none',
+                background: active ? 'rgba(26, 92, 42, 0.10)' : 'transparent',
+                fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+                letterSpacing: '0.2px',
+                transition: 'color 0.15s, background 0.15s',
               }}
             >
               {link.label}

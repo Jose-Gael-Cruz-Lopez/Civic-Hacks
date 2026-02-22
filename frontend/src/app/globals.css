@@ -3,14 +3,14 @@
 /* ── Design Tokens ─────────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg:           #f5f9f5;
-  --bg-panel:     #ffffff;
-  --bg-sidebar:   #f2f7f2;
-  --bg-topbar:    #f0f5f0;
-  --bg-input:     #ffffff;
-  --bg-subtle:    #f8faf8;
-  --bg-space:     #f5f9f5;
-  --bg-glass:     rgba(240, 246, 240, 0.95);
+  --bg:           #e6ede6;
+  --bg-panel:     #f8fbf8;
+  --bg-sidebar:   #dfe8df;
+  --bg-topbar:    #dce6dc;
+  --bg-input:     #f8fbf8;
+  --bg-subtle:    #e9efe9;
+  --bg-space:     #e6ede6;
+  --bg-glass:     rgba(220, 234, 220, 0.95);
 
   /* Forest green accent */
   --accent:           #1a5c2a;
@@ -61,7 +61,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -344,3 +344,9 @@ input, select, textarea { color-scheme: light; }
 
 .animate-fade-in  { animation: fade-in  var(--dur-slow) var(--ease-out) both; }
 .animate-scale-in { animation: scale-in var(--dur-base) var(--ease-out) both; }
+
+/* ── Navbar link hover ───────────────────────────────────────────── */
+.nav-link:hover {
+  background: rgba(26, 92, 42, 0.10) !important;
+  color: #1a5c2a !important;
+}
