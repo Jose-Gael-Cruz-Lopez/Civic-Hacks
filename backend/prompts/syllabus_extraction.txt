@@ -1,16 +1,24 @@
-Extract all assignments, exams, readings, and deadlines from this document.
+Extract all assignments, exams, readings, and deadlines from the following text.
 
-For each item return:
-- title: assignment or exam name
-- due_date: ISO format YYYY-MM-DD. If year is not specified, assume 2026.
-- course_name: course name or code if identifiable
+Note: The text was extracted via OCR from a PDF or image and may contain:
+- Garbled characters, spacing issues, or line-break artifacts
+- Merged or split words caused by OCR errors
+- Flattened tables or schedule grids
+
+Be tolerant of OCR noise. Use surrounding context to infer assignment names and dates.
+If a year is not explicitly stated, assume 2026.
+
+For each assignment or deadline found, return:
+- title: the assignment or exam name (clean up any OCR noise in the title)
+- due_date: ISO format YYYY-MM-DD
+- course_name: course name or code if identifiable, otherwise empty string
 - assignment_type: one of homework, exam, reading, project, quiz, other
-- notes: any relevant details
+- notes: any relevant additional details, or null
 
-Output ONLY valid JSON, no markdown, no backticks:
+Output ONLY valid JSON — no markdown fencing, no backticks, no extra commentary:
 {
   "assignments": [
     { "title": "string", "due_date": "YYYY-MM-DD", "course_name": "string", "assignment_type": "string", "notes": "string or null" }
   ],
-  "warnings": ["any ambiguous extractions"]
+  "warnings": ["note any ambiguous or uncertain extractions here"]
 }

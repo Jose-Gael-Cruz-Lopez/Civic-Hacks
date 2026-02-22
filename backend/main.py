@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import FRONTEND_URL, PORT
 from routes import graph, learn, quiz, calendar, social, extract
+from db.init_db import init_db
+
+# Ensure DB schema exists on every startup (safe — uses IF NOT EXISTS)
+init_db()
 
 app = FastAPI(title="Sapling API", version="1.0.0")
 

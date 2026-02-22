@@ -1,10 +1,24 @@
 import io
+import os
+import sys
 from typing import List, Tuple
 
 import pypdfium2 as pdfium
 import pytesseract
 from PIL import Image, ImageOps
 from pypdf import PdfReader
+
+# ── Tesseract binary path (Windows) ─────────────────────────────────────────
+if sys.platform == "win32":
+    _CANDIDATES = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        os.path.expanduser(r"~\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"),
+    ]
+    for _p in _CANDIDATES:
+        if os.path.exists(_p):
+            pytesseract.pytesseract.tesseract_cmd = _p
+            break
 
 
 def _clean_text(value: str) -> str:

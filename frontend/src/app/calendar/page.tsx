@@ -102,6 +102,9 @@ function CalendarInner() {
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [extractedAssignments, setExtractedAssignments] = useState<Assignment[]>([]);
+  const [fileProcessed, setFileProcessed] = useState(false);
+  const [rawText, setRawText] = useState('');
+  const [rawTextVisible, setRawTextVisible] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -120,6 +123,9 @@ function CalendarInner() {
     setUploadLoading(true);
     setWarnings([]);
     setExtractedAssignments([]);
+    setFileProcessed(false);
+    setRawText('');
+    setRawTextVisible(false);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -135,6 +141,8 @@ function CalendarInner() {
       }));
       setExtractedAssignments(mapped);
       setWarnings(res.warnings ?? []);
+      setRawText(res.raw_text ?? '');
+      setFileProcessed(true);
     } catch (e: any) {
       setWarnings([e.message || 'Extraction failed']);
     } finally {
@@ -200,21 +208,73 @@ function CalendarInner() {
         ))}
       </div>
 
-      {extractedAssignments.length > 0 && (
+      {fileProcessed && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Extracted ({extractedAssignments.length})
+              {extractedAssignments.length > 0
+                ? `Detected ${extractedAssignments.length} assignment${extractedAssignments.length !== 1 ? 's' : ''} — edit before saving`
+                : 'No assignments detected — add rows manually'}
             </p>
             <button
               onClick={handleSave}
-              disabled={saving}
-              style={{ padding: '6px 14px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
+              disabled={saving || extractedAssignments.length === 0}
+              style={{
+                padding: '6px 14px',
+                background: extractedAssignments.length === 0 ? '#e5e7eb' : '#111827',
+                color: extractedAssignments.length === 0 ? '#9ca3af' : '#ffffff',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '13px',
+                cursor: extractedAssignments.length === 0 ? 'default' : 'pointer',
+              }}
             >
-              {saved ? 'Saved!' : saving ? 'Saving...' : 'Save'}
+              {saved ? 'Saved!' : saving ? 'Saving...' : 'Save to Calendar'}
             </button>
           </div>
           <AssignmentTable assignments={extractedAssignments} onChange={setExtractedAssignments} />
+
+          {rawText && (
+            <div style={{ marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
+              <button
+                onClick={() => setRawTextVisible(v => !v)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: '#f9fafb',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  fontWeight: 500,
+                  textAlign: 'left',
+                }}
+              >
+                <span>Raw OCR text (reference while editing)</span>
+                <span>{rawTextVisible ? '▲' : '▼'}</span>
+              </button>
+              {rawTextVisible && (
+                <pre style={{
+                  margin: 0,
+                  padding: '12px',
+                  fontSize: '11px',
+                  lineHeight: 1.6,
+                  color: '#374151',
+                  background: '#ffffff',
+                  overflowX: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  maxHeight: '320px',
+                  overflowY: 'auto',
+                }}>
+                  {rawText}
+                </pre>
+              )}
+            </div>
+          )}
         </div>
       )}
 

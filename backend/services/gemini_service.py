@@ -10,8 +10,19 @@ from google.genai import types
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import GEMINI_API_KEY
 
-_client = genai.Client(api_key=GEMINI_API_KEY)
 _MODEL = "gemini-2.5-flash"
+_client = None  # lazy-initialised on first call
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        if not GEMINI_API_KEY:
+            raise ValueError(
+                "GEMINI_API_KEY is not set. Add it to backend/.env"
+            )
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+    return _client
 
 
 def _strip_backtick_fencing(text: str) -> str:
@@ -25,7 +36,7 @@ def _strip_backtick_fencing(text: str) -> str:
 def call_gemini(prompt: str, retries: int = 1) -> str:
     for attempt in range(retries + 1):
         try:
-            response = _client.models.generate_content(
+            response = _get_client().models.generate_content(
                 model=_MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
