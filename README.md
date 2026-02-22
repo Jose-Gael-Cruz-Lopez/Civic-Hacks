@@ -4,6 +4,13 @@ An AI-powered study companion that builds a live knowledge graph as you learn. C
 
 ---
 
+## Documentation
+
+- **[Problem Statement & Research](PROBLEM_STATEMENT.md)** — Root cause analysis, student interviews, literature review, and how Sapling addresses identified gaps
+- **[Ethics, Privacy & Inclusivity](ETHICS.md)** — Ethical framework, privacy practices, AI safeguards, bias mitigation, and accessibility considerations
+
+---
+
 ## Project Structure
 
 ```

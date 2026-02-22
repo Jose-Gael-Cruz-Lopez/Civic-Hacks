@@ -103,6 +103,65 @@ def gemini_test():
         return {"ok": False, "error": str(e)}
 
 
+@app.delete("/api/users/{user_id}/data")
+def delete_user_data(user_id: str):
+    """
+    Delete all data associated with a user (privacy/right-to-erasure).
+    Removes: knowledge graph, sessions, messages, quiz attempts, quiz context,
+    assignments, room memberships, room activity, OAuth tokens, and courses.
+    Does NOT delete the user row itself (so the account can be re-used).
+    """
+    from db.connection import get_conn
+    conn = get_conn()
+
+    user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user:
+        conn.close()
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Delete in dependency order to respect foreign keys
+    # 1. Messages (depend on sessions)
+    conn.execute("""
+        DELETE FROM messages WHERE session_id IN (
+            SELECT id FROM sessions WHERE user_id = ?
+        )
+    """, (user_id,))
+    # 2. Sessions
+    conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    # 3. Quiz context (depends on graph_nodes)
+    conn.execute("DELETE FROM quiz_context WHERE user_id = ?", (user_id,))
+    # 4. Quiz attempts
+    conn.execute("DELETE FROM quiz_attempts WHERE user_id = ?", (user_id,))
+    # 5. Graph edges (depend on graph_nodes)
+    conn.execute("DELETE FROM graph_edges WHERE user_id = ?", (user_id,))
+    # 6. Graph nodes
+    conn.execute("DELETE FROM graph_nodes WHERE user_id = ?", (user_id,))
+    # 7. Assignments
+    conn.execute("DELETE FROM assignments WHERE user_id = ?", (user_id,))
+    # 8. Room activity
+    conn.execute("DELETE FROM room_activity WHERE user_id = ?", (user_id,))
+    # 9. Room memberships
+    conn.execute("DELETE FROM room_members WHERE user_id = ?", (user_id,))
+    # 10. OAuth tokens
+    conn.execute("DELETE FROM oauth_tokens WHERE user_id = ?", (user_id,))
+    # 11. Courses
+    conn.execute("DELETE FROM courses WHERE user_id = ?", (user_id,))
+    # 12. Reset user streak and activity
+    conn.execute(
+        "UPDATE users SET streak_count = 0, last_active_date = NULL WHERE id = ?",
+        (user_id,),
+    )
+
+    conn.commit()
+    conn.close()
+    return {
+        "deleted": True,
+        "user_id": user_id,
+        "message": "All learning data has been permanently deleted.",
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=True)
