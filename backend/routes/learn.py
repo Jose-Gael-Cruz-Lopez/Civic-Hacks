@@ -59,6 +59,7 @@ def build_system_prompt(
     graph_json: str,
     last_summary: str = "",
     course_name: str = "",
+    use_shared_context: bool = True,
 ) -> str:
     from services.course_context_service import get_course_context
 
@@ -68,7 +69,7 @@ def build_system_prompt(
 
     parts = [preamble]
 
-    if course_name:
+    if use_shared_context and course_name:
         ctx = get_course_context(course_name)
         if ctx:
             shared_block = (
@@ -128,7 +129,10 @@ def start_session(body: StartSessionBody):
     student_name = get_user_name(body.user_id)
     graph_data = get_graph(body.user_id)
     course_name = _resolve_course(body.topic, body.user_id)
-    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2), course_name=course_name)
+    system_prompt = build_system_prompt(
+        body.mode, student_name, json.dumps(graph_data, indent=2),
+        course_name=course_name, use_shared_context=body.use_shared_context,
+    )
     full_prompt = (
         f"{system_prompt}\n\n"
         f"Student wants to learn about: {body.topic}\n\n"
@@ -161,7 +165,10 @@ def chat(body: ChatBody):
     history_text = format_history_for_prompt(history[:-1])
     topic = _get_session_topic(body.session_id)
     course_name = _resolve_course(topic, body.user_id)
-    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2), course_name=course_name)
+    system_prompt = build_system_prompt(
+        body.mode, student_name, json.dumps(graph_data, indent=2),
+        course_name=course_name, use_shared_context=body.use_shared_context,
+    )
 
     full_prompt = (
         f"{system_prompt}\n\n"
@@ -294,7 +301,10 @@ def action(body: ActionBody):
     history_text = format_history_for_prompt(history)
     topic = _get_session_topic(body.session_id)
     course_name = _resolve_course(topic, body.user_id)
-    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2), course_name=course_name)
+    system_prompt = build_system_prompt(
+        body.mode, student_name, json.dumps(graph_data, indent=2),
+        course_name=course_name, use_shared_context=body.use_shared_context,
+    )
 
     full_prompt = (
         f"{system_prompt}\n\n"

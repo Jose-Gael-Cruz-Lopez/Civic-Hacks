@@ -50,22 +50,22 @@ export const deleteCourse = (userId: string, courseName: string) =>
 
 // ── Learn ─────────────────────────────────────────────────────────────────────
 
-export const startSession = (userId: string, topic: string, mode: string) =>
+export const startSession = (userId: string, topic: string, mode: string, useSharedContext = true) =>
   fetchJSON<{ session_id: string; initial_message: string; graph_state: any }>('/api/learn/start-session', {
     method: 'POST',
-    body: JSON.stringify({ user_id: userId, topic, mode }),
+    body: JSON.stringify({ user_id: userId, topic, mode, use_shared_context: useSharedContext }),
   });
 
-export const sendChat = (sessionId: string, userId: string, message: string, mode: string) =>
+export const sendChat = (sessionId: string, userId: string, message: string, mode: string, useSharedContext = true) =>
   fetchJSON<{ reply: string; graph_update: any; mastery_changes: any[] }>('/api/learn/chat', {
     method: 'POST',
-    body: JSON.stringify({ session_id: sessionId, user_id: userId, message, mode }),
+    body: JSON.stringify({ session_id: sessionId, user_id: userId, message, mode, use_shared_context: useSharedContext }),
   });
 
-export const sendAction = (sessionId: string, userId: string, actionType: string, mode: string) =>
+export const sendAction = (sessionId: string, userId: string, actionType: string, mode: string, useSharedContext = true) =>
   fetchJSON<{ reply: string; graph_update: any }>('/api/learn/action', {
     method: 'POST',
-    body: JSON.stringify({ session_id: sessionId, user_id: userId, action_type: actionType, mode }),
+    body: JSON.stringify({ session_id: sessionId, user_id: userId, action_type: actionType, mode, use_shared_context: useSharedContext }),
   });
 
 export const endSession = (sessionId: string) =>
@@ -95,10 +95,10 @@ export const resumeSession = (sessionId: string) =>
 
 // ── Quiz ──────────────────────────────────────────────────────────────────────
 
-export const generateQuiz = (userId: string, conceptNodeId: string, numQuestions: number, difficulty: string) =>
+export const generateQuiz = (userId: string, conceptNodeId: string, numQuestions: number, difficulty: string, useSharedContext = true) =>
   fetchJSON<{ quiz_id: string; questions: any[] }>('/api/quiz/generate', {
     method: 'POST',
-    body: JSON.stringify({ user_id: userId, concept_node_id: conceptNodeId, num_questions: numQuestions, difficulty }),
+    body: JSON.stringify({ user_id: userId, concept_node_id: conceptNodeId, num_questions: numQuestions, difficulty, use_shared_context: useSharedContext }),
   });
 
 export const submitQuiz = (quizId: string, answers: any[]) =>

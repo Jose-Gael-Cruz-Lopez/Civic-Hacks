@@ -11,11 +11,12 @@ interface Props {
   selectedCourse?: string;
   onLearnConcept?: (concept: string) => void;
   preselectedNodeId?: string;
+  useSharedContext?: boolean;
 }
 
 type Phase = 'select' | 'active' | 'review' | 'results';
 
-export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcept, preselectedNodeId }: Props) {
+export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcept, preselectedNodeId, useSharedContext = true }: Props) {
   const preselectedNode = preselectedNodeId ? nodes.find(n => n.id === preselectedNodeId) : undefined;
   const subjectFilter = selectedCourse || preselectedNode?.subject || '';
   const courseNodes = subjectFilter
@@ -48,7 +49,7 @@ export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcep
     setLoading(true);
     setError('');
     try {
-      const res = await generateQuiz(userId, selectedNodeId, numQuestions, difficulty);
+      const res = await generateQuiz(userId, selectedNodeId, numQuestions, difficulty, useSharedContext);
       setQuizId(res.quiz_id);
       setQuestions(res.questions);
       setCurrentQ(0);

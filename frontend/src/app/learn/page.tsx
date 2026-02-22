@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { getMasteryLabel } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
 import CustomSelect from '@/components/CustomSelect';
+import SharedContextToggle from '@/components/SharedContextToggle';
 
 function LearnInner() {
   const { userId: USER_ID, userReady } = useUser();
@@ -41,6 +42,19 @@ function LearnInner() {
   const [topic, setTopic] = useState(topicParam);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [recentSessions, setRecentSessions] = useState<{ id: string; topic: string; mode: string; started_at: string; is_active: boolean }[]>([]);
+  const [useSharedContext, setUseSharedContext] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const saved = localStorage.getItem('sapling_shared_ctx');
+    return saved === null ? true : saved === 'true';
+  });
+
+  const toggleSharedContext = () => {
+    setUseSharedContext(prev => {
+      const next = !prev;
+      localStorage.setItem('sapling_shared_ctx', String(next));
+      return next;
+    });
+  };
 
   const courses = [...new Set(nodes.map(n => n.subject).filter(Boolean))].sort();
 
@@ -94,7 +108,7 @@ function LearnInner() {
     setMessages([]);
     setSessionId(null);
     try {
-      const res = await startSession(USER_ID, t, m);
+      const res = await startSession(USER_ID, t, m, useSharedContext);
       setSessionId(res.session_id);
       setNodes(res.graph_state.nodes);
       setEdges(res.graph_state.edges);
@@ -122,7 +136,7 @@ function LearnInner() {
     setMessages(prev => [...prev, userMsg]);
     setChatLoading(true);
     try {
-      const res = await sendChat(sessionId, USER_ID, message, mode);
+      const res = await sendChat(sessionId, USER_ID, message, mode, useSharedContext);
       setMessages(prev => [...prev, {
         id: `msg_${Date.now() + 1}`,
         role: 'assistant',
@@ -141,7 +155,7 @@ function LearnInner() {
     if (!sessionId) return;
     setChatLoading(true);
     try {
-      const res = await sendAction(sessionId, USER_ID, action, mode);
+      const res = await sendAction(sessionId, USER_ID, action, mode, useSharedContext);
       setMessages(prev => [...prev, {
         id: `msg_${Date.now()}`,
         role: 'assistant',
@@ -217,6 +231,8 @@ function LearnInner() {
         alignItems: 'center',
         gap: '16px',
         flexShrink: 0,
+        position: 'relative',
+        zIndex: 20,
       }}>
         <Link href="/" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
           ←
@@ -261,6 +277,8 @@ function LearnInner() {
         {sessionLoading && <span style={{ fontSize: '13px', color: '#6b7280' }}>Starting…</span>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
+          <SharedContextToggle enabled={useSharedContext} onToggle={toggleSharedContext} />
+
           <ModeSelector
             mode={mode}
             onChange={handleModeChange}
@@ -281,6 +299,7 @@ function LearnInner() {
                 userId={USER_ID}
                 selectedCourse={selectedCourse}
                 preselectedNodeId={quizPreselectId}
+                useSharedContext={useSharedContext}
                 onLearnConcept={concept => {
                   setQuizMode(false);
                   if (concept) { setTopic(concept); beginSession(concept, mode); }

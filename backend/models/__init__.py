@@ -8,6 +8,7 @@ class StartSessionBody(BaseModel):
     user_id: str = "user_andres"
     topic: str = ""
     mode: str = "socratic"
+    use_shared_context: bool = True
 
 
 class ChatBody(BaseModel):
@@ -15,6 +16,7 @@ class ChatBody(BaseModel):
     user_id: str = "user_andres"
     message: str
     mode: str = "socratic"
+    use_shared_context: bool = True
 
 
 class EndSessionBody(BaseModel):
@@ -26,6 +28,7 @@ class ActionBody(BaseModel):
     user_id: str = "user_andres"
     action_type: str = "hint"
     mode: str = "socratic"
+    use_shared_context: bool = True
 
 
 # ── Quiz ──────────────────────────────────────────────────────────────────────
@@ -35,6 +38,7 @@ class GenerateQuizBody(BaseModel):
     concept_node_id: str
     num_questions: int = 5
     difficulty: str = "medium"
+    use_shared_context: bool = True
 
 
 class AnswerItem(BaseModel):
