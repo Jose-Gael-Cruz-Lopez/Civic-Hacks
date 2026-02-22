@@ -32,12 +32,42 @@ function hashString(s: string): number {
   return Math.abs(h);
 }
 
-/** Deterministically maps any subject/course name to a matte colour entry. */
-export function getCourseColor(subject: string): CourseColor {
+function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return null;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+  return [r, g, b];
+}
+
+/** Build a CourseColor from any valid 6-digit hex string. */
+export function hexToCourseColor(hex: string): CourseColor {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return COURSE_COLOR_PALETTE[0];
+  const [r, g, b] = rgb;
+  return {
+    fill: hex,
+    bg: `rgba(${r},${g},${b},0.12)`,
+    text: hex,
+    border: `rgba(${r},${g},${b},0.3)`,
+  };
+}
+
+/** Deterministically maps any subject/course name to a matte colour entry.
+ *  Pass overrideHex to use a user-chosen colour instead of the hash default. */
+export function getCourseColor(subject: string, overrideHex?: string | null): CourseColor {
+  if (overrideHex && /^#[0-9a-fA-F]{6}$/.test(overrideHex)) {
+    return hexToCourseColor(overrideHex);
+  }
   const key = (subject ?? '').toLowerCase().trim();
   if (!key) return COURSE_COLOR_PALETTE[0];
   return COURSE_COLOR_PALETTE[hashString(key) % COURSE_COLOR_PALETTE.length];
 }
+
+/** The 12 preset fill colours exposed so the colour picker can list them. */
+export const PRESET_COURSE_COLORS = COURSE_COLOR_PALETTE.map(c => c.fill);
 
 // ── Mastery colours (still used in detail panels / tooltips) ─────────────────
 // Forest green / light theme palette

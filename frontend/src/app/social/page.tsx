@@ -11,7 +11,7 @@ import { useUser } from '@/context/UserContext';
 type Tab = 'overview' | 'match' | 'activity';
 
 export default function SocialPage() {
-  const { userId: USER_ID } = useUser();
+  const { userId: USER_ID, userReady } = useUser();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
@@ -23,13 +23,14 @@ export default function SocialPage() {
   const [overviewLoading, setOverviewLoading] = useState(false);
 
   useEffect(() => {
+    if (!userReady) return;
     getUserRooms(USER_ID).then(res => {
       setRooms(res.rooms);
       if (res.rooms.length > 0 && !activeRoomId) {
         setActiveRoomId(res.rooms[0].id);
       }
     }).catch(console.error);
-  }, []);
+  }, [USER_ID, userReady]);
 
   useEffect(() => {
     if (!activeRoomId) return;

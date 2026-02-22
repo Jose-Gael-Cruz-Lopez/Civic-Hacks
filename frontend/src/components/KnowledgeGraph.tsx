@@ -17,6 +17,7 @@ interface KnowledgeGraphProps {
   comparison?: {
     partnerNodes: GraphNode[];
   };
+  courseColorMap?: Record<string, string>;
 }
 
 interface SimNode extends d3.SimulationNodeDatum {
@@ -59,6 +60,7 @@ function KnowledgeGraph({
   interactive = true,
   onNodeClick,
   comparison,
+  courseColorMap = {},
 }: KnowledgeGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const simRef = useRef<d3.Simulation<SimNode, SimLink> | null>(null);
@@ -190,9 +192,9 @@ function KnowledgeGraph({
     const circles = nodeSel.append('circle')
       .attr('class', 'main-circle')
       .attr('r', d => getSimRadius(d))
-      .attr('fill', d => getCourseColor(d.subject).fill)
+      .attr('fill', d => getCourseColor(d.subject, courseColorMap[d.subject]).fill)
       .attr('fill-opacity', d => masteryOpacity(d.mastery_tier))
-      .attr('stroke', d => getCourseColor(d.subject).fill)
+      .attr('stroke', d => getCourseColor(d.subject, courseColorMap[d.subject]).fill)
       .attr('stroke-opacity', d => d.is_subject_root ? 0.7 : 0.4)
       .attr('stroke-width', d => d.is_subject_root ? 2.5 : 1.5);
 
@@ -225,7 +227,7 @@ function KnowledgeGraph({
       .attr('font-size', d => d.is_subject_root ? '13px' : '11px')
       .attr('font-weight', d => d.is_subject_root ? '600' : '400')
       .attr('font-family', "'DM Sans', Inter, system-ui, sans-serif")
-      .attr('fill', d => d.is_subject_root ? getCourseColor(d.subject).text : '#374151')
+      .attr('fill', d => d.is_subject_root ? getCourseColor(d.subject, courseColorMap[d.subject]).text : '#374151')
       .attr('pointer-events', 'none')
       .style('user-select', 'none');
 
@@ -241,7 +243,7 @@ function KnowledgeGraph({
           const lastStudied = sourceNode.last_studied_at
             ? new Date(sourceNode.last_studied_at).toLocaleDateString()
             : 'Never';
-          const cc = getCourseColor(sourceNode.subject);
+          const cc = getCourseColor(sourceNode.subject, courseColorMap[sourceNode.subject]);
           tooltip.innerHTML = `
             <div style="font-weight:600;color:#111827;margin-bottom:4px">${sourceNode.concept_name}</div>
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
@@ -306,7 +308,7 @@ function KnowledgeGraph({
     prevNodesRef.current = nodes;
     prevEdgesRef.current = edges;
     return () => { sim.stop(); };
-  }, [nodes, edges, width, height, animate, highlightId, interactive, onNodeClick, getComparisonOutlineColor]);
+  }, [nodes, edges, width, height, animate, highlightId, interactive, onNodeClick, getComparisonOutlineColor, courseColorMap]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height }}>

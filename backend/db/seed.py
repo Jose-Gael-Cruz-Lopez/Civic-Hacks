@@ -582,11 +582,45 @@ def seed_room():
     print(f"Room '{ROOM_NAME}' seeded with {len(ROOM_MEMBERS)} members.")
 
 
+# ─── Courses ──────────────────────────────────────────────────────────────────
+
+COURSE_COLORS = {
+    "CS 101": "#2563eb",
+    "CS 112": "#6366f1",
+    "MA 121": "#0d9488",
+    "MA 213": "#d97706",
+    "MA 311": "#7c3aed",
+}
+
+USER_COURSES = {
+    "user_andres": ["CS 101", "CS 112", "MA 121", "MA 213", "MA 311"],
+    "user_jack":   ["CS 101", "CS 112", "MA 121", "MA 213", "MA 311"],
+    "user_luke":   ["MA 121", "MA 213", "MA 311", "CS 101"],
+    "user_priya":  ["MA 121", "MA 213", "CS 112"],
+}
+
+
+def seed_courses():
+    conn = get_conn()
+    for user_id, courses in USER_COURSES.items():
+        for course_name in courses:
+            color = COURSE_COLORS.get(course_name)
+            conn.execute(
+                "INSERT OR IGNORE INTO courses (id, user_id, course_name, color) VALUES (?, ?, ?, ?)",
+                (str(uuid.uuid4()), user_id, course_name, color),
+            )
+    conn.commit()
+    conn.close()
+    print("Courses seeded.")
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     print("Seeding users...")
     seed_users()
+    print("Seeding courses...")
+    seed_courses()
     print("Seeding graphs...")
     seed_graph("user_andres",  JOHN_NODES,  JOHN_EDGES)
     seed_graph("user_jack",    MARIA_NODES, MARIA_EDGES)
