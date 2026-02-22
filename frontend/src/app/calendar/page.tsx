@@ -8,89 +8,252 @@ import { Assignment } from '@/lib/types';
 import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, exportToGoogleCalendar } from '@/lib/api';
 import { useUser } from '@/context/UserContext';
 
+type CalendarView = 'month' | 'week' | 'day';
+
+const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  exam:     { bg: '#fee2e2', text: '#dc2626', border: '#fca5a5' },
+  project:  { bg: '#ffedd5', text: '#ea580c', border: '#fdba74' },
+  homework: { bg: '#f3f4f6', text: '#374151', border: '#d1d5db' },
+  quiz:     { bg: '#fef9c3', text: '#ca8a04', border: '#fde047' },
+  reading:  { bg: '#dbeafe', text: '#2563eb', border: '#93c5fd' },
+  other:    { bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
+};
+
+function AssignmentChip({ a }: { a: Assignment }) {
+  const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
+  return (
+    <div
+      title={`${a.title}${a.course_name ? ` — ${a.course_name}` : ''}${a.notes ? `\n${a.notes}` : ''}`}
+      style={{
+        background: c.bg,
+        color: c.text,
+        fontSize: '11px',
+        padding: '2px 6px',
+        borderRadius: '4px',
+        lineHeight: 1.5,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontWeight: 500,
+        cursor: 'default',
+        border: `1px solid ${c.border}`,
+      }}
+    >
+      {a.title}
+    </div>
+  );
+}
+
 function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+  const [view, setView] = useState<CalendarView>('month');
+  const [current, setCurrent] = useState(() => new Date());
 
-  const year = month.getFullYear();
-  const monthIdx = month.getMonth();
-  const firstDay = new Date(year, monthIdx, 1).getDay();
-  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-
-  const assignmentsByDay: Record<string, Assignment[]> = {};
-  for (const a of assignments) {
-    const d = new Date(a.due_date + 'T00:00:00');
-    if (d.getFullYear() === year && d.getMonth() === monthIdx) {
-      const key = d.getDate().toString();
-      if (!assignmentsByDay[key]) assignmentsByDay[key] = [];
-      assignmentsByDay[key].push(a);
-    }
-  }
-
-  const TYPE_COLORS: Record<string, string> = {
-    exam: '#ef4444',
-    project: '#f97316',
-    homework: '#6b7280',
-    quiz: '#eab308',
-    reading: '#3b82f6',
-    other: '#9ca3af',
+  const toISO = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   };
 
-  const prevMonth = () => setMonth(new Date(year, monthIdx - 1, 1));
-  const nextMonth = () => setMonth(new Date(year, monthIdx + 1, 1));
-  const monthName = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = toISO(new Date());
 
-  return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-        <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }}>←</button>
-        <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{monthName}</span>
-        <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }}>→</button>
-      </div>
+  const byDate: Record<string, Assignment[]> = {};
+  for (const a of assignments) {
+    if (!a.due_date) continue;
+    if (!byDate[a.due_date]) byDate[a.due_date] = [];
+    byDate[a.due_date].push(a);
+  }
+
+  const navigate = (dir: -1 | 1) => {
+    if (view === 'month') {
+      setCurrent(c => new Date(c.getFullYear(), c.getMonth() + dir, 1));
+    } else if (view === 'week') {
+      setCurrent(c => new Date(c.getTime() + dir * 7 * 86400000));
+    } else {
+      setCurrent(c => new Date(c.getTime() + dir * 86400000));
+    }
+  };
+
+  const headerLabel = () => {
+    if (view === 'month') {
+      return current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    if (view === 'week') {
+      const start = new Date(current);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      const s = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const e = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return `${s} – ${e}`;
+    }
+    return current.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  // ── Month View ────────────────────────────────────────────────────────────
+  const renderMonth = () => {
+    const year = current.getFullYear();
+    const monthIdx = current.getMonth();
+    const firstDay = new Date(year, monthIdx, 1).getDay();
+    const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-        {dayNames.map(d => (
-          <div key={d} style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', fontWeight: 500, textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>
+        {DAY_NAMES.map(d => (
+          <div key={d} style={{ padding: '10px 8px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', letterSpacing: '0.05em' }}>
             {d}
           </div>
         ))}
         {Array.from({ length: firstDay }, (_, i) => (
-          <div key={`empty-${i}`} style={{ padding: '8px', minHeight: '60px', borderBottom: '1px solid #f3f4f6', borderRight: '1px solid #f3f4f6' }} />
+          <div key={`empty-${i}`} style={{ minHeight: '130px', borderBottom: '1px solid #f3f4f6', borderRight: '1px solid #f3f4f6', background: '#fafafa' }} />
         ))}
         {Array.from({ length: daysInMonth }, (_, i) => {
           const day = i + 1;
-          const dayAssignments = assignmentsByDay[day.toString()] ?? [];
-          const isToday = new Date().toDateString() === new Date(year, monthIdx, day).toDateString();
+          const iso = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const dayAssignments = byDate[iso] ?? [];
+          const isToday = iso === today;
           return (
             <div
               key={day}
               style={{
-                padding: '6px',
-                minHeight: '60px',
+                padding: '8px',
+                minHeight: '130px',
                 borderBottom: '1px solid #f3f4f6',
                 borderRight: '1px solid #f3f4f6',
                 background: isToday ? '#f0fdf4' : '#ffffff',
               }}
             >
-              <span style={{ fontSize: '12px', color: isToday ? '#22c55e' : '#6b7280', fontWeight: isToday ? 600 : 400 }}>
-                {day}
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
-                {dayAssignments.slice(0, 2).map(a => (
-                  <span key={a.id} style={{ fontSize: '10px', color: TYPE_COLORS[a.assignment_type] ?? '#9ca3af', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {a.title}
-                  </span>
-                ))}
-                {dayAssignments.length > 2 && (
-                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>+{dayAssignments.length - 2} more</span>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '4px' }}>
+                <span style={{
+                  width: '26px', height: '26px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isToday ? '#22c55e' : 'transparent',
+                  fontSize: '12px',
+                  color: isToday ? '#ffffff' : '#6b7280',
+                  fontWeight: isToday ? 700 : 400,
+                }}>
+                  {day}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {dayAssignments.slice(0, 3).map(a => <AssignmentChip key={a.id} a={a} />)}
+                {dayAssignments.length > 3 && (
+                  <span style={{ fontSize: '10px', color: '#9ca3af', paddingLeft: '4px' }}>+{dayAssignments.length - 3} more</span>
                 )}
               </div>
             </div>
           );
         })}
       </div>
+    );
+  };
+
+  // ── Week View ─────────────────────────────────────────────────────────────
+  const renderWeek = () => {
+    const start = new Date(current);
+    start.setDate(start.getDate() - start.getDay());
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        {days.map((d, i) => {
+          const iso = toISO(d);
+          const isToday = iso === today;
+          return (
+            <div key={i} style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '2px solid #e5e7eb', background: isToday ? '#f0fdf4' : '#f9fafb', borderRight: i < 6 ? '1px solid #e5e7eb' : 'none' }}>
+              <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{DAY_NAMES[i]}</div>
+              <div style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday ? '#22c55e' : 'transparent', margin: '6px auto 0' }}>
+                <span style={{ fontSize: '15px', color: isToday ? '#ffffff' : '#111827', fontWeight: isToday ? 700 : 500 }}>
+                  {d.getDate()}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        {days.map((d, i) => {
+          const iso = toISO(d);
+          const dayAssignments = byDate[iso] ?? [];
+          const isToday = iso === today;
+          return (
+            <div key={`body-${i}`} style={{ padding: '8px 6px', minHeight: '280px', borderRight: i < 6 ? '1px solid #f3f4f6' : 'none', background: isToday ? '#f0fdf4' : '#ffffff', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {dayAssignments.map(a => <AssignmentChip key={a.id} a={a} />)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── Day View ──────────────────────────────────────────────────────────────
+  const renderDay = () => {
+    const iso = toISO(current);
+    const dayAssignments = byDate[iso] ?? [];
+    return (
+      <div style={{ padding: '24px', minHeight: '300px' }}>
+        {dayAssignments.length === 0 ? (
+          <p style={{ color: '#9ca3af', fontSize: '14px', textAlign: 'center', padding: '60px 0' }}>No assignments due on this day.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '600px', margin: '0 auto' }}>
+            {dayAssignments.map(a => {
+              const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
+              return (
+                <div key={a.id} style={{ padding: '14px 16px', borderRadius: '8px', background: c.bg, borderLeft: `4px solid ${c.text}`, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{a.title}</span>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {a.course_name && <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>{a.course_name}</span>}
+                    <span style={{ fontSize: '11px', color: c.text, fontWeight: 600, background: 'white', padding: '1px 7px', borderRadius: '4px', border: `1px solid ${c.border}` }}>{a.assignment_type}</span>
+                    {a.notes && <span style={{ fontSize: '12px', color: '#9ca3af' }}>{a.notes}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const viewBtnStyle = (v: CalendarView): React.CSSProperties => ({
+    padding: '5px 14px',
+    fontSize: '12px',
+    border: '1px solid #e5e7eb',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    background: view === v ? '#111827' : '#ffffff',
+    color: view === v ? '#ffffff' : '#6b7280',
+    fontWeight: view === v ? 600 : 400,
+    transition: 'all 0.1s',
+  });
+
+  return (
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={() => navigate(-1)} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', cursor: 'pointer', color: '#6b7280', fontSize: '14px', padding: '4px 10px', lineHeight: 1 }}>←</button>
+          <button onClick={() => setCurrent(new Date())} style={{ fontSize: '11px', color: '#6b7280', background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '5px', cursor: 'pointer', padding: '4px 10px', fontWeight: 500 }}>Today</button>
+          <button onClick={() => navigate(1)} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '5px', cursor: 'pointer', color: '#6b7280', fontSize: '14px', padding: '4px 10px', lineHeight: 1 }}>→</button>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827', marginLeft: '10px' }}>{headerLabel()}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {(['day', 'week', 'month'] as CalendarView[]).map(v => (
+            <button key={v} onClick={() => setView(v)} style={viewBtnStyle(v)}>
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'month' && renderMonth()}
+      {view === 'week' && renderWeek()}
+      {view === 'day' && renderDay()}
     </div>
   );
 }
@@ -195,9 +358,13 @@ function CalendarInner() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#111827', margin: 0 }}>Calendar</h1>
+    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#111827', margin: 0 }}>Calendar</h1>
 
+      {/* Calendar grid — full width, prominent */}
+      <CalendarGrid assignments={assignments} />
+
+      {/* Import syllabus */}
       <div>
         <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
           Import Syllabus
@@ -238,38 +405,13 @@ function CalendarInner() {
             <div style={{ marginTop: '12px', border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
               <button
                 onClick={() => setRawTextVisible(v => !v)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: '#f9fafb',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  color: '#6b7280',
-                  fontWeight: 500,
-                  textAlign: 'left',
-                }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#f9fafb', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#6b7280', fontWeight: 500, textAlign: 'left' }}
               >
                 <span>Raw OCR text (reference while editing)</span>
                 <span>{rawTextVisible ? '▲' : '▼'}</span>
               </button>
               {rawTextVisible && (
-                <pre style={{
-                  margin: 0,
-                  padding: '12px',
-                  fontSize: '11px',
-                  lineHeight: 1.6,
-                  color: '#374151',
-                  background: '#ffffff',
-                  overflowX: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  maxHeight: '320px',
-                  overflowY: 'auto',
-                }}>
+                <pre style={{ margin: 0, padding: '12px', fontSize: '11px', lineHeight: 1.6, color: '#374151', background: '#ffffff', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '320px', overflowY: 'auto' }}>
                   {rawText}
                 </pre>
               )}
@@ -277,13 +419,6 @@ function CalendarInner() {
           )}
         </div>
       )}
-
-      <div>
-        <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-          Schedule
-        </p>
-        <CalendarGrid assignments={assignments} />
-      </div>
 
       {assignments.length > 0 && (
         <div>
