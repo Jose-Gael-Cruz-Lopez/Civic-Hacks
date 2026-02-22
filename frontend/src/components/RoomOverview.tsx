@@ -74,18 +74,18 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
           <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', marginBottom: '8px' }}>Your Tree</p>
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px' }}>
             {myMember ? (
               <KnowledgeGraph
                 nodes={myMember.graph.nodes}
                 edges={myMember.graph.edges}
-                width={300}
-                height={260}
+                width={440}
+                height={380}
                 interactive={false}
                 comparison={partnerMember ? { partnerNodes: partnerMember.graph.nodes } : undefined}
               />
             ) : (
-              <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '13px' }}>
+              <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '13px' }}>
                 No data
               </div>
             )}
@@ -106,18 +106,18 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
               ))}
             </select>
           </div>
-          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px' }}>
             {partnerMember ? (
               <KnowledgeGraph
                 nodes={partnerMember.graph.nodes}
                 edges={partnerMember.graph.edges}
-                width={300}
-                height={260}
+                width={440}
+                height={380}
                 interactive={false}
                 comparison={myMember ? { partnerNodes: myMember.graph.nodes } : undefined}
               />
             ) : (
-              <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '13px' }}>
+              <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '13px' }}>
                 Select a member to compare
               </div>
             )}

@@ -319,11 +319,13 @@ export default function KnowledgeGraph({
   }, [nodes, edges, width, height, animate, highlightId, interactive, onNodeClick, getComparisonOutlineColor]);
 
   return (
-    <div style={{ position: 'relative', width, height }}>
+    <div style={{ position: 'relative', width: '100%', height }}>
       <svg
         ref={svgRef}
-        width={width}
-        height={height}
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMid meet"
         style={{ display: 'block' }}
       />
       {interactive && (
