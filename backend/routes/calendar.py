@@ -28,7 +28,7 @@ from config import (
 )
 from db.connection import get_conn
 from models import SaveAssignmentsBody, StudyBlockBody, ExportBody, SyncBody
-from services.calendar_service import process_and_save_syllabus
+from services.calendar_service import extract_assignments_from_file
 
 try:
     from google_auth_oauthlib.flow import Flow
@@ -143,16 +143,15 @@ def _require_google_creds(user_id: str):
 @router.post("/extract")
 async def extract(
     file: UploadFile = File(...),
-    user_id: str = Form("user_andres"),
 ):
     file_bytes = await file.read()
     filename = file.filename or "upload"
     content_type = file.content_type or "application/octet-stream"
     try:
-        result = process_and_save_syllabus(file_bytes, filename, content_type, user_id)
+        result = extract_assignments_from_file(file_bytes, filename, content_type)
         return result
     except Exception as e:
-        return {"error": str(e), "assignments": [], "saved_count": 0, "warnings": [str(e)]}
+        return {"error": str(e), "assignments": [], "warnings": [str(e)]}
 
 
 # ── Assignment CRUD ───────────────────────────────────────────────────────────

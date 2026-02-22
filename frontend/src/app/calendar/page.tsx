@@ -7,6 +7,7 @@ import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
 import {
   extractSyllabus,
+  saveAssignments,
   getUpcomingAssignments,
   getCalendarAuthUrl,
   getCalendarStatus,
@@ -273,12 +274,10 @@ function CalendarInner() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [extractedAssignments, setExtractedAssignments] = useState<Assignment[]>([]);
   const [fileProcessed, setFileProcessed] = useState(false);
-  const [rawText, setRawText] = useState('');
-  const [rawTextVisible, setRawTextVisible] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadFilename, setUploadFilename] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncedCount, setSyncedCount] = useState<number | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -307,12 +306,9 @@ function CalendarInner() {
     setWarnings([]);
     setExtractedAssignments([]);
     setFileProcessed(false);
-    setRawText('');
-    setRawTextVisible(false);
     try {
       const form = new FormData();
       form.append('file', file);
-      // Backend now auto-saves to DB and returns saved_count
       const res = await extractSyllabus(form, USER_ID);
       const mapped: Assignment[] = (res.assignments ?? []).map((a: any, i: number) => ({
         id: `extracted_${i}_${Date.now()}`,
@@ -325,21 +321,26 @@ function CalendarInner() {
       }));
       setExtractedAssignments(mapped);
       setWarnings(res.warnings ?? []);
-      setRawText(res.raw_text ?? '');
       setFileProcessed(true);
-      // Merge into calendar immediately — already saved in DB
-      if (mapped.length > 0) {
-        setAssignments(prev => {
-          const titles = new Set(prev.map(a => a.title));
-          return [...prev, ...mapped.filter(a => !titles.has(a.title))];
-        });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      }
     } catch (e: any) {
       setWarnings([e.message || 'Extraction failed']);
     } finally {
       setUploadLoading(false);
+    }
+  };
+
+  const handleSaveDetected = async () => {
+    setSaving(true);
+    try {
+      await saveAssignments(USER_ID, extractedAssignments);
+      const data = await getUpcomingAssignments(USER_ID);
+      setAssignments(data.assignments);
+      setExtractedAssignments([]);
+      setFileProcessed(false);
+    } catch (e: any) {
+      setWarnings([e.message || 'Save failed']);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -423,36 +424,16 @@ function CalendarInner() {
                 : 'No assignments detected'}
             </p>
             {extractedAssignments.length > 0 && (
-              <span style={{
-                padding: '4px 12px',
-                background: saved ? 'rgba(26,92,42,0.08)' : 'rgba(107,114,128,0.06)',
-                color: saved ? '#1a5c2a' : '#6b7280',
-                border: saved ? '1px solid rgba(26,92,42,0.3)' : '1px solid rgba(107,114,128,0.15)',
-                borderRadius: '4px',
-                fontSize: '12px',
-              }}>
-                {saved ? 'Saved to calendar' : 'Auto-saving...'}
-              </span>
+              <button
+                onClick={handleSaveDetected}
+                disabled={saving}
+                style={{ padding: '6px 16px', background: 'rgba(26,92,42,0.08)', color: '#1a5c2a', border: '1px solid rgba(26,92,42,0.3)', borderRadius: '5px', fontSize: '12px', fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
+              >
+                {saving ? 'Saving...' : 'Save to Calendar'}
+              </button>
             )}
           </div>
           <AssignmentTable assignments={extractedAssignments} onChange={setExtractedAssignments} />
-
-          {rawText && (
-            <div style={{ marginTop: '12px', border: '1px solid rgba(107,114,128,0.15)', borderRadius: '6px', overflow: 'hidden' }}>
-              <button
-                onClick={() => setRawTextVisible(v => !v)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: '#f8faf8', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#6b7280', fontWeight: 500, textAlign: 'left' }}
-              >
-                <span>Raw OCR text (reference while editing)</span>
-                <span>{rawTextVisible ? '▲' : '▼'}</span>
-              </button>
-              {rawTextVisible && (
-                <pre style={{ margin: 0, padding: '12px', fontSize: '11px', lineHeight: 1.6, color: '#374151', background: '#f5f9f5', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '320px', overflowY: 'auto' }}>
-                  {rawText}
-                </pre>
-              )}
-            </div>
-          )}
         </div>
       )}
 
