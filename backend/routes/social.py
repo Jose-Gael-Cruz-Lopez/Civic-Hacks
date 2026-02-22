@@ -206,7 +206,7 @@ def get_students():
     """Return a lightweight profile for every user in the DB."""
     users = table("users").select("id,name,streak_count")
     courses_rows = table("courses").select("user_id,course_name")
-    nodes_rows = table("graph_nodes").select("user_id,mastery_tier")
+    nodes_rows = table("graph_nodes").select("user_id,mastery_tier,concept_name,mastery_score")
 
     courses_by_user: dict = defaultdict(list)
     for c in courses_rows:
@@ -215,12 +215,21 @@ def get_students():
     mastery_by_user: dict = defaultdict(
         lambda: {"mastered": 0, "learning": 0, "struggling": 0, "unexplored": 0, "total": 0}
     )
+    top_concepts_by_user: dict = defaultdict(list)
     for n in nodes_rows:
         uid = n["user_id"]
         tier = n["mastery_tier"]
         mastery_by_user[uid]["total"] += 1
         if tier in mastery_by_user[uid]:
             mastery_by_user[uid][tier] += 1
+        if tier == "mastered":
+            top_concepts_by_user[uid].append((n.get("mastery_score", 0), n["concept_name"]))
+
+    # Sort each user's mastered concepts by score desc, keep top 4
+    for uid in top_concepts_by_user:
+        top_concepts_by_user[uid] = [
+            name for _, name in sorted(top_concepts_by_user[uid], reverse=True)[:4]
+        ]
 
     students = [
         {
@@ -229,6 +238,7 @@ def get_students():
             "streak": u.get("streak_count") or 0,
             "courses": sorted(courses_by_user[u["id"]]),
             "stats": dict(mastery_by_user[u["id"]]),
+            "top_concepts": top_concepts_by_user[u["id"]],
         }
         for u in users
     ]

@@ -8,6 +8,7 @@ interface StudentProfile {
   name: string;
   courses: string[];
   stats: { mastered: number; total: number };
+  top_concepts: string[];
 }
 
 interface Props {
@@ -107,11 +108,25 @@ export default function SchoolDirectory({ currentUserId }: Props) {
                     <span style={{ fontSize: '11px', color: '#9ca3af' }}>No courses</span>
                   )}
 
-                  {/* Strengths */}
-                  {s.stats.mastered > 0 && (
-                    <span style={{ fontSize: '10px', color: '#1a5c2a' }}>
-                      {s.stats.mastered} concept{s.stats.mastered !== 1 ? 's' : ''} mastered
-                    </span>
+                  {/* Top concepts */}
+                  {s.top_concepts.length > 0 && (
+                    <div>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Top concepts
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
+                        {s.top_concepts.map(c => (
+                          <span key={c} style={{
+                            fontSize: '10px', color: '#1a5c2a',
+                            background: 'rgba(26,92,42,0.07)',
+                            border: '1px solid rgba(26,92,42,0.18)',
+                            borderRadius: '4px', padding: '1px 6px',
+                          }}>
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
               );
