@@ -194,6 +194,62 @@ def end_session(body: EndSessionBody):
     return {"summary": summary}
 
 
+@router.get("/sessions/{user_id}")
+def list_sessions(user_id: str, limit: int = 10):
+    """Return the most recent sessions for a user, newest first."""
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT s.id, s.topic, s.mode, s.started_at, s.ended_at,
+                  COUNT(m.id) AS message_count
+           FROM sessions s
+           LEFT JOIN messages m ON m.session_id = s.id
+           WHERE s.user_id = ?
+           GROUP BY s.id
+           ORDER BY s.started_at DESC
+           LIMIT ?""",
+        (user_id, limit),
+    ).fetchall()
+    conn.close()
+    return {
+        "sessions": [
+            {
+                "id": r["id"],
+                "topic": r["topic"],
+                "mode": r["mode"],
+                "started_at": r["started_at"],
+                "ended_at": r["ended_at"],
+                "message_count": r["message_count"],
+                "is_active": r["ended_at"] is None,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/sessions/{session_id}/resume")
+def resume_session(session_id: str):
+    """Return session metadata + full message history for client-side resume."""
+    conn = get_conn()
+    session = conn.execute(
+        "SELECT id, user_id, topic, mode, started_at, ended_at FROM sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    if not session:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    msgs = conn.execute(
+        "SELECT id, role, content, created_at FROM messages WHERE session_id = ? ORDER BY created_at ASC",
+        (session_id,),
+    ).fetchall()
+    conn.close()
+
+    return {
+        "session": dict(session),
+        "messages": [dict(m) for m in msgs],
+    }
+
+
 @router.post("/action")
 def action(body: ActionBody):
     action_prompts = {

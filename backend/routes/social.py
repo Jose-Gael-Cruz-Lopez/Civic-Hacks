@@ -9,6 +9,7 @@ from models import CreateRoomBody, JoinRoomBody, MatchBody
 from services.graph_service import get_graph
 from services.matching_service import find_study_matches
 from services.gemini_service import call_gemini
+from services.social_cache_service import get_cached_summary, save_summary, invalidate as invalidate_summary
 
 router = APIRouter()
 
@@ -27,6 +28,7 @@ def create_room(body: CreateRoomBody):
     )
     conn.commit()
     conn.close()
+    invalidate_summary(room_id)
     return {"room_id": room_id, "invite_code": invite_code}
 
 
@@ -49,6 +51,7 @@ def join_room(body: JoinRoomBody):
             "INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room["id"], body.user_id)
         )
         conn.commit()
+        invalidate_summary(room["id"])
     member_count = conn.execute(
         "SELECT COUNT(*) as c FROM room_members WHERE room_id = ?", (room["id"],)
     ).fetchone()["c"]
@@ -89,6 +92,7 @@ def room_overview(room_id: str, viewer_id: str = Query("user_john")):
     for m in members_rows:
         members.append({"user_id": m["id"], "name": m["name"], "graph": get_graph(m["id"])})
 
+    # Build the mastery snapshot used both for caching and for the Gemini prompt
     member_summaries = []
     for m in members:
         nodes = m["graph"]["nodes"]
@@ -96,15 +100,19 @@ def room_overview(room_id: str, viewer_id: str = Query("user_john")):
         struggling = [n["concept_name"] for n in nodes if n["mastery_tier"] == "struggling"]
         member_summaries.append(f"{m['name']}: mastered {mastered}, struggling with {struggling}")
 
-    try:
-        ai_summary = call_gemini(
-            "Write a 2-3 sentence summary of this study group's collective knowledge:\n"
-            + "\n".join(member_summaries)
-            + "\nFocus on complementary strengths and shared goals."
-        )
-    except Exception as e:
-        print(f"Gemini summary failed: {e}")
-        ai_summary = "This study group has complementary strengths across multiple subjects."
+    # Return cached summary if member mastery hasn't changed
+    ai_summary = get_cached_summary(room_id, member_summaries)
+    if ai_summary is None:
+        try:
+            ai_summary = call_gemini(
+                "Write a 2-3 sentence summary of this study group's collective knowledge:\n"
+                + "\n".join(member_summaries)
+                + "\nFocus on complementary strengths and shared goals."
+            )
+            save_summary(room_id, member_summaries, ai_summary)
+        except Exception as e:
+            print(f"Gemini summary failed: {e}")
+            ai_summary = "This study group has complementary strengths across multiple subjects."
 
     return {"room": dict(room), "members": members, "ai_summary": ai_summary}
 

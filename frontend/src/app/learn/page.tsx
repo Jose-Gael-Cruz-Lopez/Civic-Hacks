@@ -8,7 +8,7 @@ import ModeSelector from '@/components/ModeSelector';
 import QuizPanel from '@/components/QuizPanel';
 import SessionSummary from '@/components/SessionSummary';
 import { GraphNode, GraphEdge, ChatMessage, TeachingMode, SessionSummary as SessionSummaryType } from '@/lib/types';
-import { startSession, sendChat, sendAction, endSession, getGraph } from '@/lib/api';
+import { startSession, sendChat, sendAction, endSession, getGraph, getSessions, resumeSession } from '@/lib/api';
 import Link from 'next/link';
 import { getMasteryLabel } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
@@ -38,16 +38,18 @@ function LearnInner() {
 
   const [topic, setTopic] = useState(topicParam);
   const [selectedCourse, setSelectedCourse] = useState('');
+  const [recentSessions, setRecentSessions] = useState<{ id: string; topic: string; mode: string; started_at: string; is_active: boolean }[]>([]);
 
   // Derive unique course list from graph nodes
   const courses = [...new Set(nodes.map(n => n.subject).filter(Boolean))].sort();
 
-  // Load initial graph
+  // Load initial graph + recent sessions
   useEffect(() => {
     getGraph(USER_ID).then(data => {
       setNodes(data.nodes);
       setEdges(data.edges);
     }).catch(console.error);
+    getSessions(USER_ID, 10).then(data => setRecentSessions(data.sessions)).catch(console.error);
   }, []);
 
   // Watch graph container size
@@ -159,6 +161,27 @@ function LearnInner() {
     beginSession(course, mode);
   };
 
+  const handleResumeSession = async (sessionId: string) => {
+    if (!sessionId) return;
+    setSessionLoading(true);
+    try {
+      const res = await resumeSession(sessionId);
+      setSessionId(res.session.id);
+      setTopic(res.session.topic);
+      setMode(res.session.mode as TeachingMode);
+      setMessages(res.messages.map(m => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: m.created_at,
+      })));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
   // Get topic node for header mastery display
   const topicNode = nodes.find(n =>
     n.concept_name.toLowerCase() === topic.toLowerCase()
@@ -201,6 +224,34 @@ function LearnInner() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+
+        {/* Resume past session */}
+        {recentSessions.length > 0 && (
+          <select
+            defaultValue=""
+            onChange={e => { handleResumeSession(e.target.value); e.target.value = ''; }}
+            style={{
+              padding: '5px 10px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              fontSize: '13px',
+              color: '#374151',
+              background: '#ffffff',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="" disabled>Resume session…</option>
+            {recentSessions.map(s => {
+              const date = new Date(s.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+              return (
+                <option key={s.id} value={s.id}>
+                  {s.topic} · {s.mode} · {date}{s.is_active ? ' ●' : ''}
+                </option>
+              );
+            })}
+          </select>
+        )}
 
         {/* Active topic / concept label */}
         {topic && (

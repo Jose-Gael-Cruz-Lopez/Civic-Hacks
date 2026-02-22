@@ -127,3 +127,14 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
     expires_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
+
+-- Cached AI summaries for rooms.
+-- member_hash is a SHA-256 digest of the member mastery data used to generate
+-- the summary.  If the hash matches the current data, we skip the Gemini call.
+CREATE TABLE IF NOT EXISTS room_summaries (
+    room_id TEXT PRIMARY KEY,
+    summary TEXT NOT NULL,
+    member_hash TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (room_id) REFERENCES rooms(id)
+);
