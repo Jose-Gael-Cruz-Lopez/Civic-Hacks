@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { UserProvider } from '@/context/UserContext';
 import Navbar from '@/components/Navbar';
+import SpaceBackground from '@/components/SpaceBackground';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,9 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body>
+        <SpaceBackground />
         <UserProvider>
-          <Navbar />
-          <main>{children}</main>
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <Navbar />
+            <main style={{ flex: 1 }}>{children}</main>
+          </div>
         </UserProvider>
       </body>
     </html>

@@ -165,11 +165,13 @@ function LearnInner() {
   );
 
   return (
-    <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
+    <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e5e7eb',
+        background: 'rgba(3,7,18,0.75)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(148,163,184,0.1)',
         padding: '0 20px',
         height: '52px',
         display: 'flex',
@@ -177,7 +179,7 @@ function LearnInner() {
         gap: '16px',
         flexShrink: 0,
       }}>
-        <Link href="/" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
+        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
           ←
         </Link>
 
@@ -187,11 +189,11 @@ function LearnInner() {
           onChange={e => handleSelectCourse(e.target.value)}
           style={{
             padding: '5px 10px',
-            border: '1px solid #e5e7eb',
+            border: '1px solid rgba(148,163,184,0.2)',
             borderRadius: '4px',
             fontSize: '13px',
-            color: '#374151',
-            background: '#ffffff',
+            color: '#f1f5f9',
+            background: 'rgba(15,23,42,0.7)',
             cursor: 'pointer',
             outline: 'none',
           }}
@@ -206,13 +208,13 @@ function LearnInner() {
         {topic && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {topic !== selectedCourse && (
-              <span style={{ fontSize: '13px', color: '#9ca3af' }}>→</span>
+              <span style={{ fontSize: '13px', color: '#475569' }}>→</span>
             )}
-            <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#f1f5f9' }}>
               {topic !== selectedCourse ? topic : ''}
             </span>
             {topicNode && (
-              <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
                 {getMasteryLabel(topicNode.mastery_score)}
               </span>
             )}
@@ -220,7 +222,7 @@ function LearnInner() {
         )}
 
         {sessionLoading && (
-          <span style={{ fontSize: '13px', color: '#9ca3af' }}>Starting…</span>
+          <span style={{ fontSize: '13px', color: '#94a3b8' }}>Starting…</span>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
@@ -237,9 +239,9 @@ function LearnInner() {
       {/* Main split */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left panel */}
-        <div style={{ flex: 1, borderRight: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ flex: 1, borderRight: '1px solid rgba(148,163,184,0.08)', overflow: 'hidden' }}>
           {quizMode ? (
-            <div style={{ height: '100%', overflow: 'auto', background: '#ffffff' }}>
+            <div style={{ height: '100%', overflow: 'auto' }}>
               <QuizPanel
                 nodes={nodes}
                 userId={USER_ID}
@@ -282,7 +284,7 @@ function LearnInner() {
             />
           </div>
           <div style={{ position: 'absolute', bottom: '12px', right: '12px' }}>
-            <Link href="/tree" style={{ fontSize: '12px', color: '#9ca3af', textDecoration: 'none' }}>
+            <Link href="/tree" style={{ fontSize: '12px', color: '#475569', textDecoration: 'none' }}>
               View Full Tree
             </Link>
           </div>
@@ -306,7 +308,7 @@ function LearnInner() {
 
 export default function LearnPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, color: '#9ca3af' }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 40, color: '#94a3b8' }}>Loading...</div>}>
       <LearnInner />
     </Suspense>
   );
