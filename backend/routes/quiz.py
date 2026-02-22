@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from config import get_mastery_tier
 from db.connection import get_conn
@@ -65,7 +65,7 @@ def generate_quiz(body: GenerateQuizBody):
 
 
 @router.post("/submit")
-def submit_quiz(body: SubmitQuizBody):
+def submit_quiz(body: SubmitQuizBody, background_tasks: BackgroundTasks):
     conn = get_conn()
     attempt = conn.execute(
         "SELECT * FROM quiz_attempts WHERE id = ?", (body.quiz_id,)
@@ -133,11 +133,15 @@ def submit_quiz(body: SubmitQuizBody):
         .replace("{total}", str(total))
         .replace("{quiz_results_json}", json.dumps(results, indent=2))
     )
-    try:
-        new_ctx = call_gemini_json(ctx_prompt)
-        save_quiz_context(user_id, concept_node_id, new_ctx)
-    except Exception:
-        pass
+
+    def _update_context(prompt: str, uid: str, node_id: str):
+        try:
+            new_ctx = call_gemini_json(prompt)
+            save_quiz_context(uid, node_id, new_ctx)
+        except Exception:
+            pass
+
+    background_tasks.add_task(_update_context, ctx_prompt, user_id, concept_node_id)
 
     return {
         "score": score,

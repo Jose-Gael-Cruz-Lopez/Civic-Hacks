@@ -1,3 +1,5 @@
+import sys
+
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
 from services.extraction_service import (
@@ -7,6 +9,16 @@ from services.extraction_service import (
 )
 
 router = APIRouter()
+
+
+def _ocr_unavailable_error(detail: str) -> HTTPException:
+    """Log OCR error to terminal and return a 503 the frontend can display."""
+    print(f"\n[OCR UNAVAILABLE] {detail}", file=sys.stderr)
+    print("[OCR UNAVAILABLE] Install tesseract-ocr to enable OCR features.\n", file=sys.stderr)
+    return HTTPException(
+        status_code=503,
+        detail=f"OCR not available on this machine: {detail}. Install tesseract-ocr to enable PDF/image scanning.",
+    )
 
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 ALLOWED_PDF_TYPES = {"application/pdf"}
@@ -54,7 +66,13 @@ async def extract_pdf(
             method = "pdf_ocr"
             if not force_ocr and text:
                 warnings.append("Native text was short; OCR fallback used")
+        except RuntimeError as e:
+            raise _ocr_unavailable_error(str(e))
         except Exception as e:
+            # Tesseract binary missing raises TesseractNotFoundError (an OSError subclass)
+            err = str(e)
+            if "tesseract" in err.lower() or "not found" in err.lower():
+                raise _ocr_unavailable_error(err)
             raise HTTPException(status_code=500, detail=f"PDF OCR failed: {e}")
 
     return {
@@ -86,5 +104,10 @@ async def extract_image(
             "warnings": [] if text else ["No text found in image"],
             "metadata": {"filename": file.filename},
         }
+    except RuntimeError as e:
+        raise _ocr_unavailable_error(str(e))
     except Exception as e:
+        err = str(e)
+        if "tesseract" in err.lower() or "not found" in err.lower():
+            raise _ocr_unavailable_error(err)
         raise HTTPException(status_code=500, detail=f"Image extraction failed: {e}")

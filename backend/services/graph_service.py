@@ -51,7 +51,38 @@ def get_graph(user_id: str) -> dict:
         "unexplored": unexplored,
         "streak": streak,
     }
-    return {"nodes": nodes, "edges": edges, "stats": stats}
+
+    # Build synthetic subject root nodes (one hub per subject)
+    subject_map: dict = {}
+    for n in nodes:
+        subj = n.get("subject") or "General"
+        subject_map.setdefault(subj, []).append(n)
+
+    subject_nodes = []
+    subject_edges = []
+    for subj, subj_nodes in subject_map.items():
+        root_id = f"subject_root__{subj}"
+        avg_mastery = sum(n["mastery_score"] for n in subj_nodes) / len(subj_nodes)
+        subject_nodes.append({
+            "id": root_id,
+            "user_id": user_id,
+            "concept_name": subj,
+            "mastery_score": round(avg_mastery, 4),
+            "mastery_tier": "subject_root",
+            "subject": subj,
+            "times_studied": sum(n.get("times_studied", 0) for n in subj_nodes),
+            "last_studied_at": None,
+            "is_subject_root": True,
+        })
+        for n in subj_nodes:
+            subject_edges.append({
+                "id": f"subject_edge__{root_id}__{n['id']}",
+                "source": root_id,
+                "target": n["id"],
+                "strength": 0.7,
+            })
+
+    return {"nodes": nodes + subject_nodes, "edges": edges + subject_edges, "stats": stats}
 
 
 def apply_graph_update(user_id: str, graph_update: dict) -> list:

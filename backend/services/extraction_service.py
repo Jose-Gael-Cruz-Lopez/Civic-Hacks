@@ -1,9 +1,7 @@
 import io
 from typing import List, Tuple
 
-import pypdfium2 as pdfium
-import pytesseract
-from PIL import Image, ImageOps
+# pypdf is pure-Python, safe to import at startup (used for native text extraction, no Tesseract needed)
 from pypdf import PdfReader
 
 
@@ -11,12 +9,20 @@ def _clean_text(value: str) -> str:
     return "\n".join(line.rstrip() for line in value.splitlines()).strip()
 
 
-def _preprocess_for_ocr(image: Image.Image) -> Image.Image:
+def _preprocess_for_ocr(image):
+    # Lazy import — only executed when OCR is actually triggered
+    from PIL import ImageOps
     gray = ImageOps.grayscale(image)
     return ImageOps.autocontrast(gray)
 
 
 def extract_text_from_image_bytes(image_bytes: bytes, lang: str = "eng") -> str:
+    try:
+        from PIL import Image
+        import pytesseract
+    except ImportError as e:
+        raise RuntimeError(f"OCR library not installed: {e}") from e
+
     image = Image.open(io.BytesIO(image_bytes))
     image = _preprocess_for_ocr(image)
     text = pytesseract.image_to_string(image, lang=lang, config="--psm 6")
@@ -35,6 +41,13 @@ def extract_text_from_pdf_native(pdf_bytes: bytes, max_pages: int = 50) -> Tuple
 def extract_text_from_pdf_ocr(
     pdf_bytes: bytes, max_pages: int = 20, lang: str = "eng"
 ) -> Tuple[str, int]:
+    try:
+        import pypdfium2 as pdfium
+        import pytesseract
+        from PIL import Image  # noqa: F401 — needed by pdfium .to_pil()
+    except ImportError as e:
+        raise RuntimeError(f"OCR library not installed: {e}") from e
+
     pdf = pdfium.PdfDocument(pdf_bytes)
     page_count = min(len(pdf), max_pages)
     chunks: List[str] = []

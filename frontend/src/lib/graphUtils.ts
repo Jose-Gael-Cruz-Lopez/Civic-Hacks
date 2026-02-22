@@ -5,6 +5,7 @@ export const MASTERY_COLORS: Record<string, string> = {
   learning: '#eab308',
   struggling: '#ef4444',
   unexplored: '#d1d5db',
+  subject_root: '#6366f1',
 };
 
 export function getMasteryColor(tier: string): string {

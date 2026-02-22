@@ -15,11 +15,44 @@ _MODEL = "gemini-2.5-flash"
 
 
 def _strip_backtick_fencing(text: str) -> str:
+    """Extract JSON content, handling backtick fences anywhere in the text."""
     text = text.strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-    return text.strip()
+    # If there's a fenced block anywhere, extract its contents
+    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
+    if match:
+        return match.group(1).strip()
+    return text
+
+
+def _extract_json(text: str) -> str:
+    """Find the first complete JSON object or array in text."""
+    text = _strip_backtick_fencing(text)
+    # Try as-is first
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+    # Walk forward to find start of JSON
+    for start_char in ('{', '['):
+        idx = text.find(start_char)
+        if idx == -1:
+            continue
+        end_char = '}' if start_char == '{' else ']'
+        depth = 0
+        for i, ch in enumerate(text[idx:], idx):
+            if ch == start_char:
+                depth += 1
+            elif ch == end_char:
+                depth -= 1
+                if depth == 0:
+                    candidate = text[idx:i + 1]
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except json.JSONDecodeError:
+                        break
+    return text  # give up, let json.loads raise
 
 
 def call_gemini(prompt: str, retries: int = 1) -> str:
@@ -33,6 +66,8 @@ def call_gemini(prompt: str, retries: int = 1) -> str:
                     max_output_tokens=4096,
                 ),
             )
+            if response.text is None:
+                raise ValueError("Gemini returned empty response (content may have been filtered)")
             return response.text
         except Exception as e:
             err_str = str(e)
@@ -44,7 +79,7 @@ def call_gemini(prompt: str, retries: int = 1) -> str:
 
 def call_gemini_json(prompt: str):
     raw = call_gemini(prompt)
-    cleaned = _strip_backtick_fencing(raw)
+    cleaned = _extract_json(raw)
     return json.loads(cleaned)
 
 

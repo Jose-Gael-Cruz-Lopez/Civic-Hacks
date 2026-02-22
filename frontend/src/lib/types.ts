@@ -2,10 +2,11 @@ export interface GraphNode {
   id: string;
   concept_name: string;
   mastery_score: number;
-  mastery_tier: 'mastered' | 'learning' | 'struggling' | 'unexplored';
+  mastery_tier: 'mastered' | 'learning' | 'struggling' | 'unexplored' | 'subject_root';
   times_studied: number;
   last_studied_at: string | null;
   subject: string;
+  is_subject_root?: boolean;
   x?: number;
   y?: number;
 }

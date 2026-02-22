@@ -107,7 +107,7 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
             Select Concept
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
-            {nodes.map(n => (
+            {nodes.filter(n => !n.is_subject_root).map(n => (
               <label
                 key={n.id}
                 style={{

@@ -25,7 +25,12 @@ interface SimNode extends d3.SimulationNodeDatum {
   mastery_score: number;
   mastery_tier: string;
   subject: string;
+  is_subject_root?: boolean;
 }
+
+const ROOT_RADIUS = 22;
+const getSimRadius = (d: SimNode) =>
+  d.is_subject_root ? ROOT_RADIUS : getNodeRadius(d.mastery_score);
 
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   id: string;
@@ -112,7 +117,7 @@ export default function KnowledgeGraph({
           .strength(d => d.strength * 0.6)
       )
       .force('charge', d3.forceManyBody().strength(-180))
-      .force('collide', d3.forceCollide<SimNode>(d => getNodeRadius(d.mastery_score) + 8))
+      .force('collide', d3.forceCollide<SimNode>(d => getSimRadius(d) + 8))
       .alphaDecay(0.03);
 
     simRef.current = sim;
@@ -164,7 +169,7 @@ export default function KnowledgeGraph({
       const outlineColor = getComparisonOutlineColor(sourceNode);
       if (outlineColor) {
         g.append('circle')
-          .attr('r', getNodeRadius(d.mastery_score) + 4)
+          .attr('r', getSimRadius(d) + 4)
           .attr('fill', 'none')
           .attr('stroke', outlineColor)
           .attr('stroke-width', 2.5);
@@ -177,7 +182,7 @@ export default function KnowledgeGraph({
         .filter(d => d.id === highlightId)
         .append('circle')
         .attr('class', 'pulse-ring')
-        .attr('r', d => getNodeRadius(d.mastery_score) + 6)
+        .attr('r', d => getSimRadius(d) + 6)
         .attr('fill', 'none')
         .attr('stroke', '#6b7280')
         .attr('stroke-width', 1.5)
@@ -187,10 +192,10 @@ export default function KnowledgeGraph({
     // Main circles
     const circles = nodeSel
       .append('circle')
-      .attr('r', d => getNodeRadius(d.mastery_score))
+      .attr('r', d => getSimRadius(d))
       .attr('fill', d => getMasteryColor(d.mastery_tier))
-      .attr('stroke', '#ffffff')
-      .attr('stroke-width', 2);
+      .attr('stroke', d => d.is_subject_root ? 'rgba(255,255,255,0.6)' : '#ffffff')
+      .attr('stroke-width', d => d.is_subject_root ? 3 : 2);
 
     // New node animation
     if (animate) {
@@ -225,10 +230,11 @@ export default function KnowledgeGraph({
       .append('text')
       .text(d => d.concept_name)
       .attr('text-anchor', 'middle')
-      .attr('dy', d => getNodeRadius(d.mastery_score) + 14)
-      .attr('font-size', '11px')
+      .attr('dy', d => d.is_subject_root ? getSimRadius(d) + 16 : getSimRadius(d) + 14)
+      .attr('font-size', d => d.is_subject_root ? '13px' : '11px')
+      .attr('font-weight', d => d.is_subject_root ? '600' : '400')
       .attr('font-family', 'Inter, system-ui, sans-serif')
-      .attr('fill', '#6b7280')
+      .attr('fill', d => d.is_subject_root ? '#374151' : '#6b7280')
       .attr('pointer-events', 'none')
       .style('user-select', 'none');
 
