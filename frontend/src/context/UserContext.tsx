@@ -16,14 +16,14 @@ interface UserContextValue {
 
 const UserContext = createContext<UserContextValue>({
   userId: 'user_john',
-  userName: 'John Doe',
+  userName: 'Andres Lopez',
   users: [],
   setActiveUser: () => {},
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState('user_john');
-  const [userName, setUserName] = useState('John Doe');
+  const [userName, setUserName] = useState('Andres Lopez');
   const [users, setUsers] = useState<UserOption[]>([]);
 
   // Restore last selected user from localStorage

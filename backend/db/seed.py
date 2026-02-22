@@ -9,18 +9,18 @@ but won't update changed values either. Delete sapling.db first
 to do a full reset, then run init_db.py then seed.py.
 
 Users:
-  user_john  — John Doe   (CS major)   CS 101, CS 112, MA 121, MA 213
-  user_maria — Maria Chen (CS major)   CS 101, CS 112, MA 121, MA 213
-  user_alex  — Alex Rivera(Math major) MA 121, MA 213, CS 101
-  user_priya — Priya Patel(Math major) MA 121, MA 213, CS 112
+  user_john  — Andres Lopez (CS major)   CS 101, CS 112, MA 121, MA 213, MA 311
+  user_maria — Jack He      (CS major)   CS 101, CS 112, MA 121, MA 213, MA 311
+  user_alex  — Luke Cooper  (Math major) MA 121, MA 213, MA 311, CS 101
+  user_priya — Priya Patel  (Math major) MA 121, MA 213, CS 112
 
 Shared classes per pair (all pairs share ≥ 2):
-  John  ↔ Maria : CS 101, CS 112, MA 121      (3)
-  John  ↔ Alex  : CS 101, MA 121, MA 213      (3)
-  John  ↔ Priya : CS 112, MA 121, MA 213      (3)
-  Maria ↔ Alex  : CS 101, MA 121, MA 213      (3)
-  Maria ↔ Priya : CS 112, MA 121, MA 213      (3)
-  Alex  ↔ Priya : MA 121, MA 213              (2)
+  Andres ↔ Jack  : CS 101, CS 112, MA 121, MA 311  (4)
+  Andres ↔ Luke  : CS 101, MA 121, MA 213, MA 311  (4)
+  Andres ↔ Priya : CS 112, MA 121, MA 213          (3)
+  Jack   ↔ Luke  : CS 101, MA 121, MA 213, MA 311  (4)
+  Jack   ↔ Priya : CS 112, MA 121, MA 213          (3)
+  Luke   ↔ Priya : MA 121, MA 213                  (2)
 """
 import sqlite3
 import uuid
@@ -40,10 +40,10 @@ def get_conn():
 # ─── Users ────────────────────────────────────────────────────────────────────
 
 USERS = [
-    ("user_john",  "John Doe",    "john@example.com",  8,  "CS major"),
-    ("user_maria", "Maria Chen",  "maria@example.com", 5,  "CS major"),
-    ("user_alex",  "Alex Rivera", "alex@example.com",  7,  "Math major"),
-    ("user_priya", "Priya Patel", "priya@example.com", 3,  "Math major"),
+    ("user_john",  "Andres Lopez", "andres@example.com", 8,  "CS major"),
+    ("user_maria", "Jack He",      "jack@example.com",   5,  "CS major"),
+    ("user_alex",  "Luke Cooper",  "luke@example.com",   7,  "Math major"),
+    ("user_priya", "Priya Patel",  "priya@example.com",  3,  "Math major"),
 ]
 
 
@@ -89,7 +89,7 @@ def seed_graph(user_id: str, nodes_data: list, edges_data: list):
     print(f"Graph seeded for {user_id}.")
 
 
-# John Doe — CS major, halfway through Spring 2026
+# Andres Lopez — CS major, halfway through Spring 2026
 JOHN_NODES = [
     # CS 101
     {"concept_name": "Variables & Data Types",      "subject": "CS 101", "mastery_score": 0.92},
@@ -118,6 +118,13 @@ JOHN_NODES = [
     {"concept_name": "Conditional Probability",     "subject": "MA 213", "mastery_score": 0.35},
     {"concept_name": "Random Variables",            "subject": "MA 213", "mastery_score": 0.0},
     {"concept_name": "Normal Distribution",         "subject": "MA 213", "mastery_score": 0.0},
+    # MA 311
+    {"concept_name": "Systems of Linear Equations", "subject": "MA 311", "mastery_score": 0.82},
+    {"concept_name": "Matrix Operations",           "subject": "MA 311", "mastery_score": 0.72},
+    {"concept_name": "Determinants",                "subject": "MA 311", "mastery_score": 0.55},
+    {"concept_name": "Vector Spaces",               "subject": "MA 311", "mastery_score": 0.33},
+    {"concept_name": "Linear Transformations",      "subject": "MA 311", "mastery_score": 0.15},
+    {"concept_name": "Eigenvalues & Eigenvectors",  "subject": "MA 311", "mastery_score": 0.0},
 ]
 JOHN_EDGES = [
     {"source": "Variables & Data Types",  "target": "Control Flow",               "strength": 0.9},
@@ -139,9 +146,14 @@ JOHN_EDGES = [
     {"source": "Probability Basics",     "target": "Conditional Probability",     "strength": 0.8},
     {"source": "Conditional Probability","target": "Random Variables",            "strength": 0.75},
     {"source": "Random Variables",       "target": "Normal Distribution",         "strength": 0.7},
+    {"source": "Systems of Linear Equations", "target": "Matrix Operations",      "strength": 0.85},
+    {"source": "Matrix Operations",           "target": "Determinants",            "strength": 0.75},
+    {"source": "Determinants",                "target": "Vector Spaces",           "strength": 0.65},
+    {"source": "Vector Spaces",               "target": "Linear Transformations",  "strength": 0.6},
+    {"source": "Linear Transformations",      "target": "Eigenvalues & Eigenvectors", "strength": 0.55},
 ]
 
-# Maria Chen — CS major, strong in CS, lighter in math
+# Jack He — CS major, strong in CS, lighter in math
 MARIA_NODES = [
     # CS 101
     {"concept_name": "Variables & Data Types",      "subject": "CS 101", "mastery_score": 0.95},
@@ -165,6 +177,13 @@ MARIA_NODES = [
     {"concept_name": "Descriptive Statistics",      "subject": "MA 213", "mastery_score": 0.65},
     {"concept_name": "Probability Basics",          "subject": "MA 213", "mastery_score": 0.45},
     {"concept_name": "Conditional Probability",     "subject": "MA 213", "mastery_score": 0.20},
+    # MA 311
+    {"concept_name": "Systems of Linear Equations", "subject": "MA 311", "mastery_score": 0.60},
+    {"concept_name": "Matrix Operations",           "subject": "MA 311", "mastery_score": 0.45},
+    {"concept_name": "Determinants",                "subject": "MA 311", "mastery_score": 0.25},
+    {"concept_name": "Vector Spaces",               "subject": "MA 311", "mastery_score": 0.10},
+    {"concept_name": "Linear Transformations",      "subject": "MA 311", "mastery_score": 0.0},
+    {"concept_name": "Eigenvalues & Eigenvectors",  "subject": "MA 311", "mastery_score": 0.0},
 ]
 MARIA_EDGES = [
     {"source": "Variables & Data Types",  "target": "Control Flow",               "strength": 0.9},
@@ -180,9 +199,13 @@ MARIA_EDGES = [
     {"source": "Basic Derivatives",      "target": "Chain Rule",                  "strength": 0.4},
     {"source": "Descriptive Statistics", "target": "Probability Basics",          "strength": 0.7},
     {"source": "Probability Basics",     "target": "Conditional Probability",     "strength": 0.5},
+    {"source": "Systems of Linear Equations", "target": "Matrix Operations",      "strength": 0.7},
+    {"source": "Matrix Operations",           "target": "Determinants",            "strength": 0.6},
+    {"source": "Determinants",                "target": "Vector Spaces",           "strength": 0.45},
+    {"source": "Vector Spaces",               "target": "Linear Transformations",  "strength": 0.35},
 ]
 
-# Alex Rivera — Math major, strong in calculus & stats, building CS
+# Luke Cooper — Math major, strong in calculus & stats, building CS
 ALEX_NODES = [
     # MA 121
     {"concept_name": "Limits",                  "subject": "MA 121", "mastery_score": 0.95},
@@ -203,6 +226,13 @@ ALEX_NODES = [
     {"concept_name": "Control Flow",            "subject": "CS 101", "mastery_score": 0.55},
     {"concept_name": "Functions",               "subject": "CS 101", "mastery_score": 0.40},
     {"concept_name": "Recursion",               "subject": "CS 101", "mastery_score": 0.15},
+    # MA 311
+    {"concept_name": "Systems of Linear Equations", "subject": "MA 311", "mastery_score": 0.92},
+    {"concept_name": "Matrix Operations",           "subject": "MA 311", "mastery_score": 0.88},
+    {"concept_name": "Determinants",                "subject": "MA 311", "mastery_score": 0.82},
+    {"concept_name": "Vector Spaces",               "subject": "MA 311", "mastery_score": 0.70},
+    {"concept_name": "Linear Transformations",      "subject": "MA 311", "mastery_score": 0.55},
+    {"concept_name": "Eigenvalues & Eigenvectors",  "subject": "MA 311", "mastery_score": 0.30},
 ]
 ALEX_EDGES = [
     {"source": "Limits",                 "target": "Continuity",             "strength": 0.95},
@@ -218,6 +248,11 @@ ALEX_EDGES = [
     {"source": "Variables & Data Types", "target": "Control Flow",           "strength": 0.75},
     {"source": "Control Flow",           "target": "Functions",              "strength": 0.65},
     {"source": "Functions",              "target": "Recursion",              "strength": 0.4},
+    {"source": "Systems of Linear Equations", "target": "Matrix Operations",  "strength": 0.92},
+    {"source": "Matrix Operations",           "target": "Determinants",        "strength": 0.88},
+    {"source": "Determinants",                "target": "Vector Spaces",       "strength": 0.82},
+    {"source": "Vector Spaces",               "target": "Linear Transformations", "strength": 0.75},
+    {"source": "Linear Transformations",      "target": "Eigenvalues & Eigenvectors", "strength": 0.65},
 ]
 
 # Priya Patel — Math major, strong in stats & calc, lighter in CS
