@@ -42,12 +42,12 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#ffffff' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Mode description */}
       <div style={{
         padding: '10px 16px',
-        borderBottom: '1px solid #e5e7eb',
-        color: '#9ca3af',
+        borderBottom: '1px solid rgba(148,163,184,0.08)',
+        color: '#475569',
         fontSize: '12px',
       }}>
         {MODE_DESCRIPTIONS[mode]}
@@ -68,11 +68,15 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
                 maxWidth: '80%',
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: msg.role === 'user' ? '#f0fdf4' : '#f3f4f6',
-                color: '#111827',
+                background: msg.role === 'user'
+                  ? 'rgba(34,211,238,0.08)'
+                  : 'rgba(15,23,42,0.6)',
+                color: '#f1f5f9',
                 fontSize: '15px',
                 lineHeight: 1.6,
-                border: msg.role === 'user' ? '1px solid #d1fae5' : '1px solid #e5e7eb',
+                border: msg.role === 'user'
+                  ? '1px solid rgba(34,211,238,0.2)'
+                  : '1px solid rgba(148,163,184,0.1)',
               }}
             >
               {msg.role === 'user' ? (
@@ -85,16 +89,16 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
                     ol: ({ children }) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ol>,
                     li: ({ children }) => <li style={{ marginBottom: '2px' }}>{children}</li>,
                     code: ({ children }) => (
-                      <code style={{ background: '#e5e7eb', borderRadius: '3px', padding: '1px 4px', fontSize: '13px', fontFamily: 'monospace' }}>
+                      <code style={{ background: 'rgba(15,23,42,0.8)', borderRadius: '3px', padding: '1px 4px', fontSize: '13px', fontFamily: 'monospace', color: '#22d3ee' }}>
                         {children}
                       </code>
                     ),
                     pre: ({ children }) => (
-                      <pre style={{ background: '#1f2937', color: '#f9fafb', borderRadius: '6px', padding: '10px', overflowX: 'auto', fontSize: '13px', margin: '0 0 8px 0' }}>
+                      <pre style={{ background: 'rgba(3,7,18,0.8)', color: '#f1f5f9', borderRadius: '6px', padding: '10px', overflowX: 'auto', fontSize: '13px', margin: '0 0 8px 0', border: '1px solid rgba(148,163,184,0.1)' }}>
                         {children}
                       </pre>
                     ),
-                    strong: ({ children }) => <strong style={{ fontWeight: 600 }}>{children}</strong>,
+                    strong: ({ children }) => <strong style={{ fontWeight: 600, color: '#f1f5f9' }}>{children}</strong>,
                   }}
                 >
                   {msg.content}
@@ -110,9 +114,9 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
               style={{
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: '#f3f4f6',
-                border: '1px solid #e5e7eb',
-                color: '#9ca3af',
+                background: 'rgba(15,23,42,0.6)',
+                border: '1px solid rgba(148,163,184,0.1)',
+                color: '#475569',
                 fontSize: '15px',
               }}
             >
@@ -124,7 +128,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
       </div>
 
       {/* Input area */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(148,163,184,0.08)' }}>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
           <textarea
             value={input}
@@ -135,10 +139,11 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
             style={{
               flex: 1,
               padding: '8px 12px',
-              border: '1px solid #e5e7eb',
+              border: '1px solid rgba(148,163,184,0.15)',
               borderRadius: '6px',
               fontSize: '14px',
-              color: '#111827',
+              color: '#f1f5f9',
+              background: 'rgba(15,23,42,0.7)',
               resize: 'none',
               outline: 'none',
               fontFamily: 'inherit',
@@ -149,14 +154,14 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
             disabled={loading || !input.trim()}
             style={{
               padding: '8px 16px',
-              background: '#111827',
-              color: '#ffffff',
-              border: 'none',
+              background: 'rgba(34,211,238,0.1)',
+              color: '#22d3ee',
+              border: '1px solid rgba(34,211,238,0.3)',
               borderRadius: '6px',
               fontSize: '13px',
               fontWeight: 500,
               cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading || !input.trim() ? 0.5 : 1,
+              opacity: loading || !input.trim() ? 0.4 : 1,
               alignSelf: 'flex-end',
             }}
           >
@@ -173,7 +178,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#9ca3af',
+                color: '#475569',
                 fontSize: '12px',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 padding: '2px 0',
@@ -188,7 +193,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
             style={{
               background: 'none',
               border: 'none',
-              color: '#ef4444',
+              color: 'rgba(248,113,113,0.7)',
               fontSize: '12px',
               cursor: 'pointer',
               padding: '2px 0',

@@ -40,7 +40,6 @@ function LearnInner() {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [recentSessions, setRecentSessions] = useState<{ id: string; topic: string; mode: string; started_at: string; is_active: boolean }[]>([]);
 
-  // Derive unique course list from graph nodes
   const courses = [...new Set(nodes.map(n => n.subject).filter(Boolean))].sort();
 
   // Load initial graph + recent sessions
@@ -52,7 +51,6 @@ function LearnInner() {
     getSessions(USER_ID, 10).then(data => setRecentSessions(data.sessions)).catch(console.error);
   }, []);
 
-  // Watch graph container size
   useEffect(() => {
     const el = graphContainerRef.current;
     if (!el) return;
@@ -64,7 +62,6 @@ function LearnInner() {
     return () => obs.disconnect();
   }, []);
 
-  // If a topic was passed via URL (e.g. from tree "Learn This" button), auto-start
   useEffect(() => {
     if (!topicParam || quizMode) return;
     beginSession(topicParam, mode);
@@ -110,7 +107,6 @@ function LearnInner() {
         content: res.reply,
         timestamp: new Date().toISOString(),
       }]);
-      // Re-fetch graph to reflect any mastery changes — doesn't affect chat
       getGraph(USER_ID).then(data => { setNodes(data.nodes); setEdges(data.edges); }).catch(console.error);
     } catch (e) {
       console.error(e);
@@ -148,11 +144,7 @@ function LearnInner() {
     }
   };
 
-  // Switching mode only updates state — the new mode is passed on every subsequent message.
-  // The graph and session are unaffected.
-  const handleModeChange = (newMode: TeachingMode) => {
-    setMode(newMode);
-  };
+  const handleModeChange = (newMode: TeachingMode) => setMode(newMode);
 
   const handleSelectCourse = (course: string) => {
     if (!course) return;
@@ -161,11 +153,11 @@ function LearnInner() {
     beginSession(course, mode);
   };
 
-  const handleResumeSession = async (sessionId: string) => {
-    if (!sessionId) return;
+  const handleResumeSession = async (sid: string) => {
+    if (!sid) return;
     setSessionLoading(true);
     try {
-      const res = await resumeSession(sessionId);
+      const res = await resumeSession(sid);
       setSessionId(res.session.id);
       setTopic(res.session.topic);
       setMode(res.session.mode as TeachingMode);
@@ -182,17 +174,16 @@ function LearnInner() {
     }
   };
 
-  // Get topic node for header mastery display
-  const topicNode = nodes.find(n =>
-    n.concept_name.toLowerCase() === topic.toLowerCase()
-  );
+  const topicNode = nodes.find(n => n.concept_name.toLowerCase() === topic.toLowerCase());
 
   return (
-    <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', background: '#f9fafb' }}>
+    <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e5e7eb',
+        background: 'rgba(3,7,18,0.75)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(148,163,184,0.1)',
         padding: '0 20px',
         height: '52px',
         display: 'flex',
@@ -200,29 +191,26 @@ function LearnInner() {
         gap: '16px',
         flexShrink: 0,
       }}>
-        <Link href="/" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
+        <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '18px', lineHeight: 1 }}>
           ←
         </Link>
 
-        {/* Course dropdown — always visible; topic label shown when session is active */}
         <select
           value={selectedCourse}
           onChange={e => handleSelectCourse(e.target.value)}
           style={{
             padding: '5px 10px',
-            border: '1px solid #e5e7eb',
+            border: '1px solid rgba(148,163,184,0.2)',
             borderRadius: '4px',
             fontSize: '13px',
-            color: '#374151',
-            background: '#ffffff',
+            color: '#f1f5f9',
+            background: 'rgba(15,23,42,0.7)',
             cursor: 'pointer',
             outline: 'none',
           }}
         >
           <option value="">Select a course…</option>
-          {courses.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
+          {courses.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
 
         {/* Resume past session */}
@@ -232,11 +220,11 @@ function LearnInner() {
             onChange={e => { handleResumeSession(e.target.value); e.target.value = ''; }}
             style={{
               padding: '5px 10px',
-              border: '1px solid #e5e7eb',
+              border: '1px solid rgba(148,163,184,0.2)',
               borderRadius: '4px',
               fontSize: '13px',
-              color: '#374151',
-              background: '#ffffff',
+              color: '#f1f5f9',
+              background: 'rgba(15,23,42,0.7)',
               cursor: 'pointer',
               outline: 'none',
             }}
@@ -253,26 +241,21 @@ function LearnInner() {
           </select>
         )}
 
-        {/* Active topic / concept label */}
         {topic && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {topic !== selectedCourse && (
-              <span style={{ fontSize: '13px', color: '#9ca3af' }}>→</span>
-            )}
-            <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>
+            {topic !== selectedCourse && <span style={{ fontSize: '13px', color: '#475569' }}>→</span>}
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#f1f5f9' }}>
               {topic !== selectedCourse ? topic : ''}
             </span>
             {topicNode && (
-              <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
                 {getMasteryLabel(topicNode.mastery_score)}
               </span>
             )}
           </div>
         )}
 
-        {sessionLoading && (
-          <span style={{ fontSize: '13px', color: '#9ca3af' }}>Starting…</span>
-        )}
+        {sessionLoading && <span style={{ fontSize: '13px', color: '#94a3b8' }}>Starting…</span>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
           <ModeSelector
@@ -287,19 +270,15 @@ function LearnInner() {
 
       {/* Main split */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left panel */}
-        <div style={{ flex: 1, borderRight: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ flex: 1, borderRight: '1px solid rgba(148,163,184,0.08)', overflow: 'hidden' }}>
           {quizMode ? (
-            <div style={{ height: '100%', overflow: 'auto', background: '#ffffff' }}>
+            <div style={{ height: '100%', overflow: 'auto' }}>
               <QuizPanel
                 nodes={nodes}
                 userId={USER_ID}
-                onLearnConcept={(concept) => {
+                onLearnConcept={concept => {
                   setQuizMode(false);
-                  if (concept) {
-                    setTopic(concept);
-                    beginSession(concept, mode);
-                  }
+                  if (concept) { setTopic(concept); beginSession(concept, mode); }
                 }}
               />
             </div>
@@ -315,7 +294,6 @@ function LearnInner() {
           )}
         </div>
 
-        {/* Right panel: live graph */}
         <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
           <div ref={graphContainerRef} style={{ flex: 1 }}>
             <KnowledgeGraph
@@ -326,14 +304,11 @@ function LearnInner() {
               animate
               interactive
               highlightId={topicNode?.id}
-              onNodeClick={n => {
-                setTopic(n.concept_name);
-                beginSession(n.concept_name, mode);
-              }}
+              onNodeClick={n => { setTopic(n.concept_name); beginSession(n.concept_name, mode); }}
             />
           </div>
           <div style={{ position: 'absolute', bottom: '12px', right: '12px' }}>
-            <Link href="/tree" style={{ fontSize: '12px', color: '#9ca3af', textDecoration: 'none' }}>
+            <Link href="/tree" style={{ fontSize: '12px', color: '#475569', textDecoration: 'none' }}>
               View Full Tree
             </Link>
           </div>
@@ -344,11 +319,7 @@ function LearnInner() {
         <SessionSummary
           summary={summary}
           onDashboard={() => router.push('/')}
-          onNewSession={() => {
-            setSummary(null);
-            setSessionId(null);
-            setMessages([]);
-          }}
+          onNewSession={() => { setSummary(null); setSessionId(null); setMessages([]); }}
         />
       )}
     </div>
@@ -357,7 +328,7 @@ function LearnInner() {
 
 export default function LearnPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, color: '#9ca3af' }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 40, color: '#94a3b8' }}>Loading...</div>}>
       <LearnInner />
     </Suspense>
   );

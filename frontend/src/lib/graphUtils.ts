@@ -1,15 +1,29 @@
 import { GraphNode, GraphEdge } from './types';
 
+// Space-themed glow palette
 export const MASTERY_COLORS: Record<string, string> = {
-  mastered: '#22c55e',
-  learning: '#eab308',
-  struggling: '#ef4444',
-  unexplored: '#d1d5db',
-  subject_root: '#6366f1',
+  mastered:     '#22d3ee', // cyan
+  learning:     '#fbbf24', // amber
+  struggling:   '#f87171', // coral-red
+  unexplored:   '#475569', // dark slate
+  subject_root: '#818cf8', // indigo — hub nodes
+};
+
+// Lighter centre colour for the radial gradient inside each node
+export const MASTERY_HIGHLIGHT_COLORS: Record<string, string> = {
+  mastered:     '#a5f3fc',
+  learning:     '#fde68a',
+  struggling:   '#fca5a5',
+  unexplored:   '#94a3b8',
+  subject_root: '#c7d2fe',
 };
 
 export function getMasteryColor(tier: string): string {
-  return MASTERY_COLORS[tier] ?? '#d1d5db';
+  return MASTERY_COLORS[tier] ?? '#475569';
+}
+
+export function getMasteryHighlightColor(tier: string): string {
+  return MASTERY_HIGHLIGHT_COLORS[tier] ?? '#94a3b8';
 }
 
 export function getMasteryLabel(score: number): string {
@@ -17,7 +31,7 @@ export function getMasteryLabel(score: number): string {
 }
 
 export function getNodeRadius(mastery_score: number): number {
-  return 6 + mastery_score * 6; // 6 to 12
+  return 7 + mastery_score * 7; // 7–14 px
 }
 
 export function computeGraphDiff(

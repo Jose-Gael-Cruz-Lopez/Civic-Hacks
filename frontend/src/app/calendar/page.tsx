@@ -5,92 +5,255 @@ import { useSearchParams } from 'next/navigation';
 import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
-import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, exportToGoogleCalendar } from '@/lib/api';
+import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, checkCalendarStatus, syncToGoogleCalendar } from '@/lib/api';
 import { useUser } from '@/context/UserContext';
 
+type CalendarView = 'month' | 'week' | 'day';
+
+const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  exam:     { bg: 'rgba(220,38,38,0.12)', text: '#fca5a5', border: 'rgba(220,38,38,0.25)' },
+  project:  { bg: 'rgba(234,88,12,0.12)', text: '#fdba74', border: 'rgba(234,88,12,0.25)' },
+  homework: { bg: 'rgba(71,85,105,0.2)', text: '#94a3b8', border: 'rgba(148,163,184,0.2)' },
+  quiz:     { bg: 'rgba(202,138,4,0.12)', text: '#fde68a', border: 'rgba(202,138,4,0.25)' },
+  reading:  { bg: 'rgba(37,99,235,0.12)', text: '#93c5fd', border: 'rgba(37,99,235,0.25)' },
+  other:    { bg: 'rgba(71,85,105,0.15)', text: '#64748b', border: 'rgba(148,163,184,0.15)' },
+};
+
+function AssignmentChip({ a }: { a: Assignment }) {
+  const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
+  return (
+    <div
+      title={`${a.title}${a.course_name ? ` — ${a.course_name}` : ''}${a.notes ? `\n${a.notes}` : ''}`}
+      style={{
+        background: c.bg,
+        color: c.text,
+        fontSize: '11px',
+        padding: '2px 6px',
+        borderRadius: '4px',
+        lineHeight: 1.5,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontWeight: 500,
+        cursor: 'default',
+        border: `1px solid ${c.border}`,
+      }}
+    >
+      {a.title}
+    </div>
+  );
+}
+
 function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
-  const [month, setMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+  const [view, setView] = useState<CalendarView>('month');
+  const [current, setCurrent] = useState(() => new Date());
 
-  const year = month.getFullYear();
-  const monthIdx = month.getMonth();
-  const firstDay = new Date(year, monthIdx, 1).getDay();
-  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-
-  const assignmentsByDay: Record<string, Assignment[]> = {};
-  for (const a of assignments) {
-    const d = new Date(a.due_date + 'T00:00:00');
-    if (d.getFullYear() === year && d.getMonth() === monthIdx) {
-      const key = d.getDate().toString();
-      if (!assignmentsByDay[key]) assignmentsByDay[key] = [];
-      assignmentsByDay[key].push(a);
-    }
-  }
-
-  const TYPE_COLORS: Record<string, string> = {
-    exam: '#ef4444',
-    project: '#f97316',
-    homework: '#6b7280',
-    quiz: '#eab308',
-    reading: '#3b82f6',
-    other: '#9ca3af',
+  const toISO = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   };
 
-  const prevMonth = () => setMonth(new Date(year, monthIdx - 1, 1));
-  const nextMonth = () => setMonth(new Date(year, monthIdx + 1, 1));
-  const monthName = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = toISO(new Date());
 
-  return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-        <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }}>←</button>
-        <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{monthName}</span>
-        <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: '16px' }}>→</button>
-      </div>
+  const byDate: Record<string, Assignment[]> = {};
+  for (const a of assignments) {
+    if (!a.due_date) continue;
+    if (!byDate[a.due_date]) byDate[a.due_date] = [];
+    byDate[a.due_date].push(a);
+  }
+
+  const navigate = (dir: -1 | 1) => {
+    if (view === 'month') {
+      setCurrent(c => new Date(c.getFullYear(), c.getMonth() + dir, 1));
+    } else if (view === 'week') {
+      setCurrent(c => new Date(c.getTime() + dir * 7 * 86400000));
+    } else {
+      setCurrent(c => new Date(c.getTime() + dir * 86400000));
+    }
+  };
+
+  const headerLabel = () => {
+    if (view === 'month') {
+      return current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    if (view === 'week') {
+      const start = new Date(current);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      const s = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const e = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return `${s} – ${e}`;
+    }
+    return current.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  // ── Month View ────────────────────────────────────────────────────────────
+  const renderMonth = () => {
+    const year = current.getFullYear();
+    const monthIdx = current.getMonth();
+    const firstDay = new Date(year, monthIdx, 1).getDay();
+    const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-        {dayNames.map(d => (
-          <div key={d} style={{ padding: '8px', textAlign: 'center', fontSize: '11px', color: '#9ca3af', fontWeight: 500, textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>
+        {DAY_NAMES.map(d => (
+          <div key={d} style={{ padding: '10px 8px', textAlign: 'center', fontSize: '11px', color: '#475569', fontWeight: 600, textTransform: 'uppercase', borderBottom: '2px solid rgba(148,163,184,0.1)', background: 'rgba(3,7,18,0.4)', letterSpacing: '0.05em' }}>
             {d}
           </div>
         ))}
         {Array.from({ length: firstDay }, (_, i) => (
-          <div key={`empty-${i}`} style={{ padding: '8px', minHeight: '60px', borderBottom: '1px solid #f3f4f6', borderRight: '1px solid #f3f4f6' }} />
+          <div key={`empty-${i}`} style={{ minHeight: '130px', borderBottom: '1px solid rgba(148,163,184,0.05)', borderRight: '1px solid rgba(148,163,184,0.05)', background: 'rgba(3,7,18,0.2)' }} />
         ))}
         {Array.from({ length: daysInMonth }, (_, i) => {
           const day = i + 1;
-          const dayAssignments = assignmentsByDay[day.toString()] ?? [];
-          const isToday = new Date().toDateString() === new Date(year, monthIdx, day).toDateString();
+          const iso = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const dayAssignments = byDate[iso] ?? [];
+          const isToday = iso === today;
           return (
             <div
               key={day}
               style={{
-                padding: '6px',
-                minHeight: '60px',
-                borderBottom: '1px solid #f3f4f6',
-                borderRight: '1px solid #f3f4f6',
-                background: isToday ? '#f0fdf4' : '#ffffff',
+                padding: '8px',
+                minHeight: '130px',
+                borderBottom: '1px solid rgba(148,163,184,0.05)',
+                borderRight: '1px solid rgba(148,163,184,0.05)',
+                background: isToday ? 'rgba(34,211,238,0.05)' : 'rgba(8,13,30,0.3)',
               }}
             >
-              <span style={{ fontSize: '12px', color: isToday ? '#22c55e' : '#6b7280', fontWeight: isToday ? 600 : 400 }}>
-                {day}
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
-                {dayAssignments.slice(0, 2).map(a => (
-                  <span key={a.id} style={{ fontSize: '10px', color: TYPE_COLORS[a.assignment_type] ?? '#9ca3af', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {a.title}
-                  </span>
-                ))}
-                {dayAssignments.length > 2 && (
-                  <span style={{ fontSize: '10px', color: '#9ca3af' }}>+{dayAssignments.length - 2} more</span>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '4px' }}>
+                <span style={{
+                  width: '26px', height: '26px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%',
+                  background: isToday ? '#22d3ee' : 'transparent',
+                  fontSize: '12px',
+                  color: isToday ? '#030712' : '#475569',
+                  fontWeight: isToday ? 700 : 400,
+                }}>
+                  {day}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {dayAssignments.slice(0, 3).map(a => <AssignmentChip key={a.id} a={a} />)}
+                {dayAssignments.length > 3 && (
+                  <span style={{ fontSize: '10px', color: '#475569', paddingLeft: '4px' }}>+{dayAssignments.length - 3} more</span>
                 )}
               </div>
             </div>
           );
         })}
       </div>
+    );
+  };
+
+  // ── Week View ─────────────────────────────────────────────────────────────
+  const renderWeek = () => {
+    const start = new Date(current);
+    start.setDate(start.getDate() - start.getDay());
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        {days.map((d, i) => {
+          const iso = toISO(d);
+          const isToday = iso === today;
+          return (
+            <div key={i} style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '2px solid rgba(148,163,184,0.1)', background: isToday ? 'rgba(34,211,238,0.06)' : 'rgba(3,7,18,0.4)', borderRight: i < 6 ? '1px solid rgba(148,163,184,0.05)' : 'none' }}>
+              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{DAY_NAMES[i]}</div>
+              <div style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: isToday ? '#22d3ee' : 'transparent', margin: '6px auto 0' }}>
+                <span style={{ fontSize: '15px', color: isToday ? '#030712' : '#f1f5f9', fontWeight: isToday ? 700 : 500 }}>
+                  {d.getDate()}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        {days.map((d, i) => {
+          const iso = toISO(d);
+          const dayAssignments = byDate[iso] ?? [];
+          const isToday = iso === today;
+          return (
+            <div key={`body-${i}`} style={{ padding: '8px 6px', minHeight: '280px', borderRight: i < 6 ? '1px solid rgba(148,163,184,0.05)' : 'none', background: isToday ? 'rgba(34,211,238,0.04)' : 'rgba(8,13,30,0.25)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {dayAssignments.map(a => <AssignmentChip key={a.id} a={a} />)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── Day View ──────────────────────────────────────────────────────────────
+  const renderDay = () => {
+    const iso = toISO(current);
+    const dayAssignments = byDate[iso] ?? [];
+    return (
+      <div style={{ padding: '24px', minHeight: '300px' }}>
+        {dayAssignments.length === 0 ? (
+          <p style={{ color: '#475569', fontSize: '14px', textAlign: 'center', padding: '60px 0' }}>No assignments due on this day.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '600px', margin: '0 auto' }}>
+            {dayAssignments.map(a => {
+              const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
+              return (
+                <div key={a.id} style={{ padding: '14px 16px', borderRadius: '8px', background: c.bg, borderLeft: `4px solid ${c.text}`, display: 'flex', flexDirection: 'column', gap: '6px', border: `1px solid ${c.border}` }}>
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#f1f5f9' }}>{a.title}</span>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {a.course_name && <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>{a.course_name}</span>}
+                    <span style={{ fontSize: '11px', color: c.text, fontWeight: 600, background: 'rgba(3,7,18,0.4)', padding: '1px 7px', borderRadius: '4px', border: `1px solid ${c.border}` }}>{a.assignment_type}</span>
+                    {a.notes && <span style={{ fontSize: '12px', color: '#475569' }}>{a.notes}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const viewBtnStyle = (v: CalendarView): React.CSSProperties => ({
+    padding: '5px 14px',
+    fontSize: '12px',
+    border: view === v ? '1px solid rgba(34,211,238,0.35)' : '1px solid rgba(148,163,184,0.15)',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    background: view === v ? 'rgba(34,211,238,0.1)' : 'transparent',
+    color: view === v ? '#22d3ee' : '#475569',
+    fontWeight: view === v ? 600 : 400,
+    transition: 'all 0.1s',
+  });
+
+  return (
+    <div style={{ border: '1px solid rgba(148,163,184,0.1)', borderRadius: '10px', overflow: 'hidden', background: 'rgba(8,13,30,0.5)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(148,163,184,0.08)', background: 'rgba(3,7,18,0.4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={() => navigate(-1)} style={{ background: 'none', border: '1px solid rgba(148,163,184,0.15)', borderRadius: '5px', cursor: 'pointer', color: '#475569', fontSize: '14px', padding: '4px 10px', lineHeight: 1 }}>←</button>
+          <button onClick={() => setCurrent(new Date())} style={{ fontSize: '11px', color: '#94a3b8', background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(148,163,184,0.15)', borderRadius: '5px', cursor: 'pointer', padding: '4px 10px', fontWeight: 500 }}>Today</button>
+          <button onClick={() => navigate(1)} style={{ background: 'none', border: '1px solid rgba(148,163,184,0.15)', borderRadius: '5px', cursor: 'pointer', color: '#475569', fontSize: '14px', padding: '4px 10px', lineHeight: 1 }}>→</button>
+          <span style={{ fontSize: '15px', fontWeight: 600, color: '#f1f5f9', marginLeft: '10px' }}>{headerLabel()}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {(['day', 'week', 'month'] as CalendarView[]).map(v => (
+            <button key={v} onClick={() => setView(v)} style={viewBtnStyle(v)}>
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === 'month' && renderMonth()}
+      {view === 'week' && renderWeek()}
+      {view === 'day' && renderDay()}
     </div>
   );
 }
@@ -98,28 +261,39 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
 function CalendarInner() {
   const { userId: USER_ID } = useUser();
   const searchParams = useSearchParams();
-  const googleConnected = searchParams.get('connected') === 'true';
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [extractedAssignments, setExtractedAssignments] = useState<Assignment[]>([]);
+  const [fileProcessed, setFileProcessed] = useState(false);
+  const [rawText, setRawText] = useState('');
+  const [rawTextVisible, setRawTextVisible] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadFilename, setUploadFilename] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportedCount, setExportedCount] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncedCount, setSyncedCount] = useState<number | null>(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
     getUpcomingAssignments(USER_ID).then(data => setAssignments(data.assignments)).catch(console.error);
-  }, []);
+    // Check connection from URL param (just returned from OAuth) or by querying the backend
+    if (searchParams.get('connected') === 'true') {
+      setGoogleConnected(true);
+    } else {
+      checkCalendarStatus(USER_ID).then(res => setGoogleConnected(res.connected)).catch(() => {});
+    }
+  }, [USER_ID]);
 
   const handleFile = async (file: File) => {
     setUploadFilename(file.name);
     setUploadLoading(true);
     setWarnings([]);
     setExtractedAssignments([]);
+    setFileProcessed(false);
+    setRawText('');
+    setRawTextVisible(false);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -135,6 +309,8 @@ function CalendarInner() {
       }));
       setExtractedAssignments(mapped);
       setWarnings(res.warnings ?? []);
+      setRawText(res.raw_text ?? '');
+      setFileProcessed(true);
     } catch (e: any) {
       setWarnings([e.message || 'Extraction failed']);
     } finally {
@@ -161,37 +337,38 @@ function CalendarInner() {
 
   const handleConnectGoogle = async () => {
     try {
-      const res = await getCalendarAuthUrl();
+      const res = await getCalendarAuthUrl(USER_ID);
       window.location.href = res.url;
     } catch {
       alert('Google Calendar not configured. Add GOOGLE_CLIENT_ID to backend .env');
     }
   };
 
-  const handleExport = async () => {
-    if (!selectedIds.length) return;
-    setExporting(true);
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncedCount(null);
     try {
-      const res = await exportToGoogleCalendar(USER_ID, selectedIds);
-      setExportedCount(res.exported_count);
-      setSelectedIds([]);
+      const res = await syncToGoogleCalendar(USER_ID);
+      setSyncedCount(res.synced_count);
+      // Refresh assignments so google_event_id is up to date
+      getUpcomingAssignments(USER_ID).then(data => setAssignments(data.assignments)).catch(console.error);
     } catch (e: any) {
       alert(e.message);
     } finally {
-      setExporting(false);
+      setSyncing(false);
     }
   };
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#111827', margin: 0 }}>Calendar</h1>
+    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Calendar</h1>
 
+      {/* Calendar grid — full width, prominent */}
+      <CalendarGrid assignments={assignments} />
+
+      {/* Import syllabus */}
       <div>
-        <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+        <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
           Import Syllabus
         </p>
         <UploadZone onFile={handleFile} loading={uploadLoading} filename={uploadFilename} />
@@ -200,66 +377,81 @@ function CalendarInner() {
         ))}
       </div>
 
-      {extractedAssignments.length > 0 && (
+      {fileProcessed && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Extracted ({extractedAssignments.length})
+            <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {extractedAssignments.length > 0
+                ? `Detected ${extractedAssignments.length} assignment${extractedAssignments.length !== 1 ? 's' : ''} — edit before saving`
+                : 'No assignments detected — add rows manually'}
             </p>
             <button
               onClick={handleSave}
-              disabled={saving}
-              style={{ padding: '6px 14px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
+              disabled={saving || extractedAssignments.length === 0}
+              style={{
+                padding: '6px 14px',
+                background: extractedAssignments.length === 0 ? 'rgba(15,23,42,0.3)' : 'rgba(34,211,238,0.1)',
+                color: extractedAssignments.length === 0 ? '#475569' : '#22d3ee',
+                border: extractedAssignments.length === 0 ? '1px solid rgba(148,163,184,0.1)' : '1px solid rgba(34,211,238,0.3)',
+                borderRadius: '4px',
+                fontSize: '13px',
+                cursor: extractedAssignments.length === 0 ? 'default' : 'pointer',
+              }}
             >
-              {saved ? 'Saved!' : saving ? 'Saving...' : 'Save'}
+              {saved ? 'Saved!' : saving ? 'Saving...' : 'Save to Calendar'}
             </button>
           </div>
           <AssignmentTable assignments={extractedAssignments} onChange={setExtractedAssignments} />
+
+          {rawText && (
+            <div style={{ marginTop: '12px', border: '1px solid rgba(148,163,184,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
+              <button
+                onClick={() => setRawTextVisible(v => !v)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(15,23,42,0.5)', border: 'none', cursor: 'pointer', fontSize: '12px', color: '#475569', fontWeight: 500, textAlign: 'left' }}
+              >
+                <span>Raw OCR text (reference while editing)</span>
+                <span>{rawTextVisible ? '▲' : '▼'}</span>
+              </button>
+              {rawTextVisible && (
+                <pre style={{ margin: 0, padding: '12px', fontSize: '11px', lineHeight: 1.6, color: '#94a3b8', background: 'rgba(8,13,30,0.5)', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '320px', overflowY: 'auto' }}>
+                  {rawText}
+                </pre>
+              )}
+            </div>
+          )}
         </div>
       )}
-
-      <div>
-        <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-          Schedule
-        </p>
-        <CalendarGrid assignments={assignments} />
-      </div>
 
       {assignments.length > 0 && (
         <div>
-          <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+          <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             All Assignments
           </p>
-          <AssignmentTable
-            assignments={assignments}
-            onChange={setAssignments}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-          />
+          <AssignmentTable assignments={assignments} onChange={setAssignments} />
         </div>
       )}
 
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ border: '1px solid rgba(148,163,184,0.1)', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(8,13,30,0.4)' }}>
         {googleConnected ? (
           <>
-            <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 500 }}>Connected to Google Calendar</span>
-            {selectedIds.length > 0 && (
-              <button
-                onClick={handleExport}
-                disabled={exporting}
-                style={{ padding: '6px 14px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
-              >
-                {exporting ? 'Exporting...' : `Export ${selectedIds.length} to Google`}
-              </button>
-            )}
-            {exportedCount !== null && (
-              <span style={{ fontSize: '13px', color: '#22c55e' }}>Exported {exportedCount} events</span>
+            <span style={{ fontSize: '13px', color: '#22d3ee', fontWeight: 500 }}>Connected to Google Calendar</span>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              style={{ padding: '6px 14px', background: 'rgba(34,211,238,0.1)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.3)', borderRadius: '4px', fontSize: '13px', cursor: syncing ? 'default' : 'pointer', opacity: syncing ? 0.6 : 1 }}
+            >
+              {syncing ? 'Syncing...' : 'Sync to Google Calendar'}
+            </button>
+            {syncedCount !== null && (
+              <span style={{ fontSize: '13px', color: '#4ade80' }}>
+                {syncedCount === 0 ? 'All assignments already synced' : `Synced ${syncedCount} assignment${syncedCount !== 1 ? 's' : ''}`}
+              </span>
             )}
           </>
         ) : (
           <button
             onClick={handleConnectGoogle}
-            style={{ padding: '8px 16px', background: '#ffffff', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}
+            style={{ padding: '8px 16px', background: 'rgba(15,23,42,0.6)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.2)', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}
           >
             Connect Google Calendar
           </button>
@@ -271,7 +463,7 @@ function CalendarInner() {
 
 export default function CalendarPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, color: '#9ca3af' }}>Loading...</div>}>
+    <Suspense fallback={<div style={{ padding: 40, color: '#94a3b8' }}>Loading...</div>}>
       <CalendarInner />
     </Suspense>
   );

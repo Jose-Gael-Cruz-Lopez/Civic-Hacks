@@ -18,9 +18,9 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
           disabled={loading}
           style={{
             padding: '8px 16px',
-            background: '#111827',
-            color: '#ffffff',
-            border: 'none',
+            background: 'rgba(34,211,238,0.1)',
+            color: '#22d3ee',
+            border: '1px solid rgba(34,211,238,0.3)',
             borderRadius: '6px',
             fontSize: '13px',
             fontWeight: 500,
@@ -33,7 +33,7 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
       </div>
 
       {matches.length === 0 && !loading && (
-        <p style={{ color: '#9ca3af', fontSize: '14px' }}>Click above to find study partners in this room.</p>
+        <p style={{ color: '#475569', fontSize: '14px' }}>Click above to find study partners in this room.</p>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -41,15 +41,15 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
           <div
             key={match.partner.id}
             style={{
-              border: '1px solid #e5e7eb',
+              border: '1px solid rgba(148,163,184,0.1)',
               borderRadius: '8px',
               padding: '16px',
-              background: '#ffffff',
+              background: 'rgba(8,13,30,0.5)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{match.partner.name}</span>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>
+              <span style={{ fontSize: '15px', fontWeight: 600, color: '#f1f5f9' }}>{match.partner.name}</span>
+              <span style={{ fontSize: '13px', color: '#475569' }}>
                 {match.compatibility_score}/100 match
               </span>
             </div>
@@ -61,7 +61,7 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {match.you_can_teach.map(t => (
-                    <span key={t.concept} style={{ fontSize: '12px', color: '#374151', padding: '2px 8px', background: '#eff6ff', borderRadius: '4px' }}>
+                    <span key={t.concept} style={{ fontSize: '12px', color: '#93c5fd', padding: '2px 8px', background: 'rgba(59,130,246,0.1)', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.15)' }}>
                       {t.concept} ({Math.round(t.your_mastery * 100)}% vs {Math.round(t.their_mastery * 100)}%)
                     </span>
                   ))}
@@ -76,7 +76,7 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {match.they_can_teach.map(t => (
-                    <span key={t.concept} style={{ fontSize: '12px', color: '#374151', padding: '2px 8px', background: '#fff7ed', borderRadius: '4px' }}>
+                    <span key={t.concept} style={{ fontSize: '12px', color: '#fb923c', padding: '2px 8px', background: 'rgba(249,115,22,0.1)', borderRadius: '4px', border: '1px solid rgba(249,115,22,0.15)' }}>
                       {t.concept} ({Math.round(t.their_mastery * 100)}% vs {Math.round(t.your_mastery * 100)}%)
                     </span>
                   ))}
@@ -91,7 +91,7 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {match.shared_struggles.map(t => (
-                    <span key={t.concept} style={{ fontSize: '12px', color: '#374151', padding: '2px 8px', background: '#fef2f2', borderRadius: '4px' }}>
+                    <span key={t.concept} style={{ fontSize: '12px', color: '#fca5a5', padding: '2px 8px', background: 'rgba(248,113,113,0.1)', borderRadius: '4px', border: '1px solid rgba(248,113,113,0.15)' }}>
                       {t.concept}
                     </span>
                   ))}
@@ -99,19 +99,20 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
               </div>
             )}
 
-            <p style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6, marginBottom: '10px' }}>{match.summary}</p>
+            <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.6, marginBottom: '10px' }}>{match.summary}</p>
 
             {match.they_can_teach[0] && (
               <Link
                 href={`/learn?topic=${encodeURIComponent(match.they_can_teach[0].concept)}`}
                 style={{
                   fontSize: '12px',
-                  color: '#374151',
+                  color: '#22d3ee',
                   textDecoration: 'none',
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid rgba(34,211,238,0.3)',
                   borderRadius: '4px',
                   padding: '4px 10px',
                   display: 'inline-block',
+                  background: 'rgba(34,211,238,0.07)',
                 }}
               >
                 Start Session

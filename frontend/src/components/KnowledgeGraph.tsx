@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphEdge } from '@/lib/types';
-import { getMasteryColor, getNodeRadius } from '@/lib/graphUtils';
+import { getMasteryColor, getMasteryHighlightColor, getNodeRadius } from '@/lib/graphUtils';
 
 interface KnowledgeGraphProps {
   nodes: GraphNode[];
@@ -28,15 +28,17 @@ interface SimNode extends d3.SimulationNodeDatum {
   is_subject_root?: boolean;
 }
 
-const ROOT_RADIUS = 22;
-const getSimRadius = (d: SimNode) =>
-  d.is_subject_root ? ROOT_RADIUS : getNodeRadius(d.mastery_score);
-
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   id: string;
   strength: number;
 }
 
+const ROOT_RADIUS = 22;
+const getSimRadius = (d: SimNode) =>
+  d.is_subject_root ? ROOT_RADIUS : getNodeRadius(d.mastery_score);
+
+// All tiers that need defs (includes subject_root hub nodes)
+const TIERS = ['mastered', 'learning', 'struggling', 'unexplored', 'subject_root'] as const;
 
 export default function KnowledgeGraph({
   nodes,
@@ -60,14 +62,12 @@ export default function KnowledgeGraph({
       if (!comparison) return null;
       const partnerNode = comparison.partnerNodes.find(n => n.concept_name === node.concept_name);
       if (!partnerNode) return null;
-
       const myM = node.mastery_score;
       const theirM = partnerNode.mastery_score;
-
-      if (myM > 0.7 && theirM < 0.5) return '#3b82f6'; // blue: you can teach
-      if (theirM > 0.7 && myM < 0.5) return '#f97316'; // orange: they can teach
-      if (myM < 0.5 && theirM < 0.5) return '#ef4444'; // red: shared struggle
-      if (myM > 0.7 && theirM > 0.7) return '#22c55e'; // green: shared strength
+      if (myM > 0.7 && theirM < 0.5) return '#38bdf8';
+      if (theirM > 0.7 && myM < 0.5) return '#fb923c';
+      if (myM < 0.5 && theirM < 0.5) return '#f87171';
+      if (myM > 0.7 && theirM > 0.7) return '#34d399';
       return null;
     },
     [comparison]
@@ -79,14 +79,40 @@ export default function KnowledgeGraph({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
+    // ── Defs: glow filters + radial gradients per tier ────────────────────
+    const defs = svg.append('defs');
+
+    TIERS.forEach(tier => {
+      const color = getMasteryColor(tier);
+      const highlight = getMasteryHighlightColor(tier);
+      const blurAmt = tier === 'unexplored' ? 2.5 : tier === 'subject_root' ? 7 : 5;
+
+      const filter = defs.append('filter')
+        .attr('id', `glow-${tier}`)
+        .attr('x', '-80%').attr('y', '-80%')
+        .attr('width', '260%').attr('height', '260%');
+      filter.append('feGaussianBlur')
+        .attr('in', 'SourceGraphic')
+        .attr('stdDeviation', blurAmt)
+        .attr('result', 'coloredBlur');
+      const merge = filter.append('feMerge');
+      merge.append('feMergeNode').attr('in', 'coloredBlur');
+      merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+      const grad = defs.append('radialGradient')
+        .attr('id', `grad-${tier}`)
+        .attr('cx', '35%').attr('cy', '30%').attr('r', '65%');
+      grad.append('stop').attr('offset', '0%').attr('stop-color', highlight).attr('stop-opacity', '1');
+      grad.append('stop').attr('offset', '100%').attr('stop-color', color).attr('stop-opacity', '0.85');
+    });
+
+    // ── Layout ─────────────────────────────────────────────────────────────
     const container = svg.append('g').attr('class', 'graph-container');
 
     if (interactive) {
       const zoom = d3.zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.3, 3])
-        .on('zoom', (event) => {
-          container.attr('transform', event.transform.toString());
-        });
+        .on('zoom', event => container.attr('transform', event.transform.toString()));
       svg.call(zoom);
     }
 
@@ -106,52 +132,45 @@ export default function KnowledgeGraph({
         strength: e.strength,
       }));
 
+    // Our tuned force values from main
     const sim = d3.forceSimulation(simNodes)
       .force('center', d3.forceCenter(width / 2, height / 2).strength(0.04))
       .force('x', d3.forceX(width / 2).strength(0.03))
       .force('y', d3.forceY(height / 2).strength(0.03))
-      .force(
-        'link',
-        d3.forceLink<SimNode, SimLink>(simLinks)
-          .id(d => d.id)
-          .distance(d => 55 + (1 - d.strength) * 40)
-          .strength(d => d.strength * 0.8)
-      )
+      .force('link', d3.forceLink<SimNode, SimLink>(simLinks)
+        .id(d => d.id)
+        .distance(d => 55 + (1 - d.strength) * 40)
+        .strength(d => d.strength * 0.8))
       .force('charge', d3.forceManyBody().strength(-120))
       .force('collide', d3.forceCollide<SimNode>(d => getSimRadius(d) + 8))
       .alphaDecay(0.04);
 
     simRef.current = sim;
 
-    // Edge layer
+    // ── Edges ──────────────────────────────────────────────────────────────
     const linkGroup = container.append('g').attr('class', 'links');
     const linkSel = linkGroup
       .selectAll<SVGLineElement, SimLink>('line')
       .data(simLinks, d => d.id)
       .enter()
       .append('line')
-      .attr('stroke', '#e5e7eb')
-      .attr('stroke-width', d => 1 + d.strength * 1.5)
+      .attr('stroke', 'rgba(148,163,184,0.13)')
+      .attr('stroke-width', d => 0.5 + d.strength * 1.2)
       .attr('stroke-linecap', 'round');
 
-    // New edge animation
     if (animate) {
       const prevEdgeIds = new Set(prevEdgesRef.current.map(e => e.id));
       simLinks.forEach(l => {
         if (!prevEdgeIds.has(l.id)) {
           const el = linkSel.filter(d => d.id === l.id);
-          const len = 100;
-          el.attr('stroke-dasharray', `${len} ${len}`)
-            .attr('stroke-dashoffset', len)
-            .transition()
-            .duration(300)
-            .attr('stroke-dashoffset', 0)
+          el.attr('stroke-dasharray', '100 100').attr('stroke-dashoffset', 100)
+            .transition().duration(300).attr('stroke-dashoffset', 0)
             .on('end', () => el.attr('stroke-dasharray', null).attr('stroke-dashoffset', null));
         }
       });
     }
 
-    // Node layer
+    // ── Nodes ──────────────────────────────────────────────────────────────
     const nodeGroup = container.append('g').attr('class', 'nodes');
     const nodeSel = nodeGroup
       .selectAll<SVGGElement, SimNode>('g')
@@ -161,85 +180,80 @@ export default function KnowledgeGraph({
       .attr('class', 'node')
       .style('cursor', interactive ? 'pointer' : 'default');
 
-    // Outer ring for comparison mode
+    // Comparison outline ring
     nodeSel.each(function(d) {
-      const g = d3.select(this);
       const sourceNode = nodes.find(n => n.id === d.id);
       if (!sourceNode) return;
-
       const outlineColor = getComparisonOutlineColor(sourceNode);
       if (outlineColor) {
-        g.append('circle')
-          .attr('r', getSimRadius(d) + 4)
+        d3.select(this).append('circle')
+          .attr('r', getSimRadius(d) + 5)
           .attr('fill', 'none')
           .attr('stroke', outlineColor)
-          .attr('stroke-width', 2.5);
+          .attr('stroke-width', 2);
       }
     });
 
     // Pulse ring for highlighted node
     if (highlightId) {
-      nodeSel
-        .filter(d => d.id === highlightId)
+      nodeSel.filter(d => d.id === highlightId)
         .append('circle')
-        .attr('class', 'pulse-ring')
-        .attr('r', d => getSimRadius(d) + 6)
+        .attr('r', d => getSimRadius(d) + 8)
         .attr('fill', 'none')
-        .attr('stroke', '#6b7280')
+        .attr('stroke', 'rgba(34,211,238,0.45)')
         .attr('stroke-width', 1.5)
-        .attr('opacity', 0.5);
+        .attr('opacity', 0.8);
     }
 
-    // Main circles
-    const circles = nodeSel
-      .append('circle')
-      .attr('r', d => getSimRadius(d))
+    // Outer soft bloom halo
+    nodeSel.append('circle')
+      .attr('r', d => getSimRadius(d) + 5)
       .attr('fill', d => getMasteryColor(d.mastery_tier))
-      .attr('stroke', d => d.is_subject_root ? 'rgba(255,255,255,0.6)' : '#ffffff')
-      .attr('stroke-width', d => d.is_subject_root ? 3 : 2);
+      .attr('opacity', d => d.is_subject_root ? 0.18 : 0.12)
+      .attr('filter', d => `url(#glow-${d.mastery_tier})`);
 
-    // New node animation
+    // Main orb
+    const circles = nodeSel.append('circle')
+      .attr('r', d => getSimRadius(d))
+      .attr('fill', d => `url(#grad-${d.mastery_tier})`)
+      .attr('filter', d => `url(#glow-${d.mastery_tier})`)
+      .attr('stroke', d => d.is_subject_root ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.18)')
+      .attr('stroke-width', d => d.is_subject_root ? 2 : 1);
+
     if (animate) {
       const prevNodeIds = new Set(prevNodesRef.current.map(n => n.id));
       simNodes.forEach(n => {
         if (!prevNodeIds.has(n.id)) {
-          const el = nodeSel.filter(d => d.id === n.id);
-          el.style('opacity', 0)
-            .style('transform', 'scale(0.5)')
-            .transition()
-            .duration(400)
-            .style('opacity', 1)
-            .style('transform', 'scale(1)');
+          nodeSel.filter(d => d.id === n.id)
+            .style('opacity', 0)
+            .transition().duration(400)
+            .style('opacity', 1);
         }
       });
 
-      // Color transitions for updated nodes
       prevNodesRef.current.forEach(prevN => {
         const currN = nodes.find(n => n.id === prevN.id);
         if (currN && currN.mastery_tier !== prevN.mastery_tier) {
-          circles
-            .filter(d => d.id === currN.id)
-            .transition()
-            .duration(500)
-            .attr('fill', getMasteryColor(currN.mastery_tier));
+          circles.filter(d => d.id === currN.id)
+            .transition().duration(500)
+            .attr('fill', `url(#grad-${currN.mastery_tier})`);
         }
       });
     }
 
-    // Labels
-    nodeSel
-      .append('text')
+    // Labels — subject_root hubs get larger bold text
+    nodeSel.append('text')
       .text(d => d.concept_name)
       .attr('text-anchor', 'middle')
-      .attr('dy', d => d.is_subject_root ? getSimRadius(d) + 16 : getSimRadius(d) + 14)
+      .attr('dy', d => d.is_subject_root ? getSimRadius(d) + 17 : getSimRadius(d) + 15)
       .attr('font-size', d => d.is_subject_root ? '13px' : '11px')
       .attr('font-weight', d => d.is_subject_root ? '600' : '400')
       .attr('font-family', 'Inter, system-ui, sans-serif')
-      .attr('fill', d => d.is_subject_root ? '#374151' : '#6b7280')
+      .attr('fill', d => d.is_subject_root ? '#c7d2fe' : '#64748b')
       .attr('pointer-events', 'none')
       .style('user-select', 'none');
 
-    // Tooltip and interactions
+    // ── Interactions ───────────────────────────────────────────────────────
     if (interactive && tooltipRef.current) {
       const tooltip = tooltipRef.current;
 
@@ -247,36 +261,33 @@ export default function KnowledgeGraph({
         .on('mouseover', function(event, d) {
           const sourceNode = nodes.find(n => n.id === d.id);
           if (!sourceNode || !tooltip) return;
-
           const mastery = Math.round(sourceNode.mastery_score * 100);
           const lastStudied = sourceNode.last_studied_at
             ? new Date(sourceNode.last_studied_at).toLocaleDateString()
             : 'Never';
-
           tooltip.innerHTML = `
-            <div style="font-weight:500;color:#111827;margin-bottom:4px">${sourceNode.concept_name}</div>
-            <div style="color:#6b7280;font-size:12px">${mastery}% mastery</div>
-            <div style="color:#9ca3af;font-size:12px">Last studied: ${lastStudied}</div>
+            <div style="font-weight:600;color:#f1f5f9;margin-bottom:4px">${sourceNode.concept_name}</div>
+            <div style="color:${getMasteryColor(sourceNode.mastery_tier)};font-size:12px;margin-bottom:2px">${mastery}% mastery</div>
+            <div style="color:#64748b;font-size:12px">Last studied: ${lastStudied}</div>
           `;
           tooltip.style.display = 'block';
-
-          const svgRect = svgRef.current!.getBoundingClientRect();
-          const x = event.clientX - svgRect.left;
-          const y = event.clientY - svgRect.top;
-          tooltip.style.left = `${x + 12}px`;
-          tooltip.style.top = `${y - 10}px`;
-
-          d3.select(this).select('circle').attr('stroke', '#9ca3af').attr('stroke-width', 3);
+          const rect = svgRef.current!.getBoundingClientRect();
+          tooltip.style.left = `${event.clientX - rect.left + 14}px`;
+          tooltip.style.top = `${event.clientY - rect.top - 12}px`;
+          d3.select(this).select('circle:last-of-type')
+            .attr('stroke', 'rgba(255,255,255,0.65)').attr('stroke-width', 2);
         })
         .on('mousemove', function(event) {
           if (!tooltip || !svgRef.current) return;
-          const svgRect = svgRef.current.getBoundingClientRect();
-          tooltip.style.left = `${event.clientX - svgRect.left + 12}px`;
-          tooltip.style.top = `${event.clientY - svgRect.top - 10}px`;
+          const rect = svgRef.current.getBoundingClientRect();
+          tooltip.style.left = `${event.clientX - rect.left + 14}px`;
+          tooltip.style.top = `${event.clientY - rect.top - 12}px`;
         })
-        .on('mouseout', function() {
+        .on('mouseout', function(_, d) {
           if (tooltip) tooltip.style.display = 'none';
-          d3.select(this).select('circle').attr('stroke', '#ffffff').attr('stroke-width', 2);
+          d3.select(this).select('circle:last-of-type')
+            .attr('stroke', (d as SimNode).is_subject_root ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.18)')
+            .attr('stroke-width', (d as SimNode).is_subject_root ? 2 : 1);
         })
         .on('click', (_, d) => {
           const sourceNode = nodes.find(n => n.id === d.id);
@@ -290,17 +301,12 @@ export default function KnowledgeGraph({
         d3.drag<SVGGElement, SimNode>()
           .on('start', (event, d) => {
             if (!event.active) sim.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
+            d.fx = d.x; d.fy = d.y;
           })
-          .on('drag', (event, d) => {
-            d.fx = event.x;
-            d.fy = event.y;
-          })
+          .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
           .on('end', (event, d) => {
             if (!event.active) sim.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
+            d.fx = null; d.fy = null;
           })
       );
     }
@@ -312,17 +318,12 @@ export default function KnowledgeGraph({
         .attr('y1', d => (d.source as SimNode).y ?? 0)
         .attr('x2', d => (d.target as SimNode).x ?? 0)
         .attr('y2', d => (d.target as SimNode).y ?? 0);
-
       nodeSel.attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
-    // Store prev state for next render's diff
     prevNodesRef.current = nodes;
     prevEdgesRef.current = edges;
-
-    return () => {
-      sim.stop();
-    };
+    return () => { sim.stop(); };
   }, [nodes, edges, width, height, animate, highlightId, interactive, onNodeClick, getComparisonOutlineColor]);
 
   return (
@@ -341,15 +342,17 @@ export default function KnowledgeGraph({
           style={{
             display: 'none',
             position: 'absolute',
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '6px',
-            padding: '8px 10px',
+            background: 'rgba(8, 13, 30, 0.88)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            border: '1px solid rgba(148, 163, 184, 0.14)',
+            borderRadius: '8px',
+            padding: '10px 12px',
             fontSize: '13px',
             pointerEvents: 'none',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            boxShadow: '0 0 24px rgba(34, 211, 238, 0.08)',
             zIndex: 10,
-            maxWidth: '180px',
+            maxWidth: '200px',
           }}
         />
       )}

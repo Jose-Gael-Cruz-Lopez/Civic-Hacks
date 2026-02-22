@@ -103,11 +103,11 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
     return (
       <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div>
-          <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+          <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             Select Concept
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
-            {nodes.filter(n => !n.is_subject_root).map(n => (
+            {nodes.map(n => (
               <label
                 key={n.id}
                 style={{
@@ -115,10 +115,10 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
                   alignItems: 'center',
                   gap: '10px',
                   padding: '8px 10px',
-                  border: `1px solid ${selectedNodeId === n.id ? '#111827' : '#e5e7eb'}`,
+                  border: `1px solid ${selectedNodeId === n.id ? 'rgba(34,211,238,0.4)' : 'rgba(148,163,184,0.12)'}`,
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  background: selectedNodeId === n.id ? '#f9fafb' : '#ffffff',
+                  background: selectedNodeId === n.id ? 'rgba(34,211,238,0.07)' : 'rgba(15,23,42,0.4)',
                 }}
               >
                 <input
@@ -128,8 +128,8 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
                   checked={selectedNodeId === n.id}
                   onChange={() => setSelectedNodeId(n.id)}
                 />
-                <span style={{ fontSize: '14px', color: '#374151', flex: 1 }}>{n.concept_name}</span>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>{Math.round(n.mastery_score * 100)}%</span>
+                <span style={{ fontSize: '14px', color: '#f1f5f9', flex: 1 }}>{n.concept_name}</span>
+                <span style={{ fontSize: '12px', color: '#475569' }}>{Math.round(n.mastery_score * 100)}%</span>
               </label>
             ))}
           </div>
@@ -137,25 +137,25 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
 
         <div style={{ display: 'flex', gap: '16px' }}>
           <div>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
               Questions
             </p>
             <select
               value={numQuestions}
               onChange={e => setNumQuestions(Number(e.target.value))}
-              style={{ padding: '6px 10px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '13px' }}
+              style={{ padding: '6px 10px', border: '1px solid rgba(148,163,184,0.15)', borderRadius: '4px', fontSize: '13px', background: 'rgba(15,23,42,0.7)', color: '#f1f5f9' }}
             >
               {[5, 10, 15].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
           <div>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
               Difficulty
             </p>
             <select
               value={difficulty}
               onChange={e => setDifficulty(e.target.value)}
-              style={{ padding: '6px 10px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '13px' }}
+              style={{ padding: '6px 10px', border: '1px solid rgba(148,163,184,0.15)', borderRadius: '4px', fontSize: '13px', background: 'rgba(15,23,42,0.7)', color: '#f1f5f9' }}
             >
               {['easy', 'medium', 'hard', 'adaptive'].map(d => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -169,14 +169,14 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
           disabled={!selectedNodeId || loading}
           style={{
             padding: '10px 20px',
-            background: '#111827',
-            color: '#ffffff',
-            border: 'none',
+            background: 'rgba(34,211,238,0.1)',
+            color: '#22d3ee',
+            border: '1px solid rgba(34,211,238,0.3)',
             borderRadius: '6px',
             fontSize: '14px',
             fontWeight: 500,
             cursor: selectedNodeId && !loading ? 'pointer' : 'not-allowed',
-            opacity: !selectedNodeId || loading ? 0.5 : 1,
+            opacity: !selectedNodeId || loading ? 0.4 : 1,
           }}
         >
           {loading ? 'Generating...' : 'Start Quiz'}
@@ -189,21 +189,21 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
     const q = questions[currentQ];
     return (
       <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <p style={{ fontSize: '12px', color: '#9ca3af' }}>
+        <p style={{ fontSize: '12px', color: '#475569' }}>
           Question {currentQ + 1} of {questions.length}
         </p>
-        <p style={{ fontSize: '15px', fontWeight: 500, color: '#111827', lineHeight: 1.6 }}>{q.question}</p>
+        <p style={{ fontSize: '15px', fontWeight: 500, color: '#f1f5f9', lineHeight: 1.6 }}>{q.question}</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {q.options.map(opt => {
-            let borderColor = '#e5e7eb';
-            let bg = '#ffffff';
+            let borderColor = 'rgba(148,163,184,0.12)';
+            let bg = 'rgba(15,23,42,0.4)';
             if (phase === 'review') {
-              if (opt.correct) { borderColor = '#22c55e'; bg = '#f0fdf4'; }
-              else if (opt.label === selectedAnswer && !opt.correct) { borderColor = '#ef4444'; bg = '#fef2f2'; }
+              if (opt.correct) { borderColor = 'rgba(34,197,94,0.5)'; bg = 'rgba(34,197,94,0.08)'; }
+              else if (opt.label === selectedAnswer && !opt.correct) { borderColor = 'rgba(248,113,113,0.5)'; bg = 'rgba(248,113,113,0.08)'; }
             } else if (selectedAnswer === opt.label) {
-              borderColor = '#111827';
-              bg = '#f9fafb';
+              borderColor = 'rgba(34,211,238,0.4)';
+              bg = 'rgba(34,211,238,0.07)';
             }
 
             return (
@@ -222,10 +222,10 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
                   gap: '10px',
                   alignItems: 'flex-start',
                   fontSize: '14px',
-                  color: '#374151',
+                  color: '#f1f5f9',
                 }}
               >
-                <span style={{ fontWeight: 600, color: '#6b7280', minWidth: '16px' }}>{opt.label}</span>
+                <span style={{ fontWeight: 600, color: '#475569', minWidth: '16px' }}>{opt.label}</span>
                 {opt.text}
               </button>
             );
@@ -233,12 +233,12 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
         </div>
 
         {phase === 'review' && (
-          <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '12px' }}>
-            <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{q.explanation}</p>
+          <div style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(148,163,184,0.1)', borderRadius: '6px', padding: '12px' }}>
+            <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.6 }}>{q.explanation}</p>
             {!reviewData?.correct && onLearnConcept && (
               <button
                 onClick={() => onLearnConcept(q.concept_tested)}
-                style={{ marginTop: '8px', background: 'none', border: 'none', color: '#6b7280', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+                style={{ marginTop: '8px', background: 'none', border: 'none', color: '#22d3ee', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
               >
                 Explain this
               </button>
@@ -253,14 +253,14 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
               disabled={!selectedAnswer}
               style={{
                 padding: '8px 16px',
-                background: '#111827',
-                color: '#ffffff',
-                border: 'none',
+                background: 'rgba(34,211,238,0.1)',
+                color: '#22d3ee',
+                border: '1px solid rgba(34,211,238,0.3)',
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 500,
                 cursor: selectedAnswer ? 'pointer' : 'not-allowed',
-                opacity: selectedAnswer ? 1 : 0.5,
+                opacity: selectedAnswer ? 1 : 0.4,
               }}
             >
               Submit
@@ -271,9 +271,9 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
               onClick={nextQuestion}
               style={{
                 padding: '8px 16px',
-                background: '#111827',
-                color: '#ffffff',
-                border: 'none',
+                background: 'rgba(34,211,238,0.1)',
+                color: '#22d3ee',
+                border: '1px solid rgba(34,211,238,0.3)',
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 500,
@@ -294,8 +294,8 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
     return (
       <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: '36px', fontWeight: 700, color: '#111827' }}>{results.score}/{results.total}</p>
-          <p style={{ fontSize: '14px', color: '#6b7280' }}>{pct}% correct</p>
+          <p style={{ fontSize: '36px', fontWeight: 700, color: '#f1f5f9' }}>{results.score}/{results.total}</p>
+          <p style={{ fontSize: '14px', color: '#94a3b8' }}>{pct}% correct</p>
           <p style={{ fontSize: '13px', color: masteryDelta >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
             Mastery: {masteryDelta >= 0 ? '+' : ''}{masteryDelta}%
           </p>
@@ -303,13 +303,13 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
 
         <div>
           {results.results.map((r, i) => (
-            <div key={r.question_id} style={{ display: 'flex', gap: '8px', padding: '6px 0', borderBottom: i < results.results.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-              <span style={{ fontSize: '13px', color: r.correct ? '#22c55e' : '#ef4444', fontWeight: 600, minWidth: '20px' }}>
+            <div key={r.question_id} style={{ display: 'flex', gap: '8px', padding: '6px 0', borderBottom: i < results.results.length - 1 ? '1px solid rgba(148,163,184,0.06)' : 'none' }}>
+              <span style={{ fontSize: '13px', color: r.correct ? '#22c55e' : '#f87171', fontWeight: 600, minWidth: '20px' }}>
                 {r.correct ? 'Y' : 'N'}
               </span>
-              <span style={{ fontSize: '13px', color: '#374151' }}>Q{i + 1}</span>
+              <span style={{ fontSize: '13px', color: '#94a3b8' }}>Q{i + 1}</span>
               {!r.correct && (
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>Correct: {r.correct_answer}</span>
+                <span style={{ fontSize: '12px', color: '#475569' }}>Correct: {r.correct_answer}</span>
               )}
             </div>
           ))}
@@ -321,10 +321,10 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
             style={{
               flex: 1,
               padding: '8px',
-              border: '1px solid #e5e7eb',
+              border: '1px solid rgba(148,163,184,0.15)',
               borderRadius: '6px',
-              background: '#ffffff',
-              color: '#374151',
+              background: 'rgba(15,23,42,0.5)',
+              color: '#94a3b8',
               fontSize: '13px',
               cursor: 'pointer',
             }}
@@ -337,10 +337,10 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
               style={{
                 flex: 1,
                 padding: '8px',
-                border: 'none',
+                border: '1px solid rgba(34,211,238,0.3)',
                 borderRadius: '6px',
-                background: '#111827',
-                color: '#ffffff',
+                background: 'rgba(34,211,238,0.1)',
+                color: '#22d3ee',
                 fontSize: '13px',
                 cursor: 'pointer',
               }}

@@ -16,6 +16,14 @@ const STATS_LABELS: Record<string, string> = {
   unexplored: 'unexplored',
 };
 
+const GLASS: React.CSSProperties = {
+  background: 'rgba(8, 13, 30, 0.65)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  border: '1px solid rgba(148, 163, 184, 0.1)',
+  borderRadius: '10px',
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { userId, userName } = useUser();
@@ -56,12 +64,7 @@ export default function Dashboard() {
     if (!el) return;
     const obs = new ResizeObserver(entries => {
       const entry = entries[0];
-      if (entry) {
-        setGraphDimensions({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
+      if (entry) setGraphDimensions({ width: entry.contentRect.width, height: entry.contentRect.height });
     });
     obs.observe(el);
     return () => obs.disconnect();
@@ -72,23 +75,21 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 48px)', background: '#f9fafb' }}>
-      {/* Left: Graph */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: '16px' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 48px)' }}>
+      {/* Left: Graph + upcoming */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: '14px' }}>
         <div
           ref={containerRef}
           style={{
             flex: 1,
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
+            ...GLASS,
             overflow: 'hidden',
             position: 'relative',
           }}
         >
           {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#9ca3af', fontSize: '14px' }}>
-              Loading graph...
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#334155', fontSize: '14px' }}>
+              Loading graph…
             </div>
           ) : (
             <KnowledgeGraph
@@ -103,26 +104,26 @@ export default function Dashboard() {
         </div>
 
         {/* Upcoming assignments */}
-        <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
+        <div style={{ ...GLASS, padding: '14px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Upcoming
             </p>
-            <Link href="/calendar" style={{ fontSize: '12px', color: '#6b7280', textDecoration: 'none' }}>
+            <Link href="/calendar" style={{ fontSize: '12px', color: '#64748b', textDecoration: 'none' }}>
               View Calendar
             </Link>
           </div>
           {assignments.length === 0 ? (
-            <p style={{ color: '#9ca3af', fontSize: '13px' }}>No upcoming assignments</p>
+            <p style={{ color: '#334155', fontSize: '13px' }}>No upcoming assignments</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {assignments.map(a => (
-                <div key={a.id} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: '#9ca3af', minWidth: '50px' }}>
+                <div key={a.id} style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                  <span style={{ fontSize: '12px', color: '#475569', minWidth: '50px' }}>
                     {formatDueDate(a.due_date)}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#6b7280' }}>{a.course_name}</span>
-                  <span style={{ fontSize: '13px', color: '#374151' }}>{a.title}</span>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>{a.course_name}</span>
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{a.title}</span>
                 </div>
               ))}
             </div>
@@ -131,34 +132,31 @@ export default function Dashboard() {
       </div>
 
       {/* Right: Sidebar */}
-      <div
-        style={{
-          width: '280px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-          padding: '20px 20px 20px 0',
-          overflowY: 'auto',
-        }}
-      >
+      <div style={{ width: '272px', display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px 20px 20px 0', overflowY: 'auto' }}>
+
         {/* User header */}
-        <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-          <p style={{ fontSize: '16px', fontWeight: 600, color: '#111827' }}>{userName}</p>
-          <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
+        <div style={{ ...GLASS, padding: '16px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: '#f1f5f9' }}>{userName}</p>
+          <p style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>
             {stats?.streak ?? 0} day streak
           </p>
         </div>
 
         {/* Stats */}
         {stats && (
-          <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          <div style={{ ...GLASS, padding: '16px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '12px' }}>
               Knowledge
             </p>
             {(['mastered', 'learning', 'struggling', 'unexplored'] as const).map(tier => (
-              <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: getMasteryColor(tier), flexShrink: 0 }} />
-                <span style={{ fontSize: '14px', color: '#374151' }}>
+              <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{
+                  width: 9, height: 9, borderRadius: '50%',
+                  background: getMasteryColor(tier),
+                  boxShadow: `0 0 6px ${getMasteryColor(tier)}`,
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontSize: '13px', color: '#94a3b8' }}>
                   {stats[tier]} {STATS_LABELS[tier]}
                 </span>
               </div>
@@ -168,8 +166,8 @@ export default function Dashboard() {
 
         {/* Recommendations */}
         {recommendations.length > 0 && (
-          <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          <div style={{ ...GLASS, padding: '16px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
               Learn Next
             </p>
             {recommendations.map(rec => {
@@ -183,12 +181,12 @@ export default function Dashboard() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '8px 0',
-                    borderBottom: '1px solid #f3f4f6',
+                    borderBottom: '1px solid rgba(148,163,184,0.07)',
                     textDecoration: 'none',
                   }}
                 >
-                  <span style={{ fontSize: '13px', color: '#374151' }}>{rec.concept_name}</span>
-                  <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                  <span style={{ fontSize: '13px', color: '#94a3b8' }}>{rec.concept_name}</span>
+                  <span style={{ fontSize: '12px', color: '#475569' }}>
                     {node ? getMasteryLabel(node.mastery_score) : '0%'}
                   </span>
                 </Link>
@@ -198,19 +196,21 @@ export default function Dashboard() {
         )}
 
         {/* Actions */}
-        <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ ...GLASS, padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <Link
             href="/learn"
             style={{
               display: 'block',
               textAlign: 'center',
               padding: '10px',
-              border: '1px solid #111827',
-              borderRadius: '6px',
-              color: '#111827',
+              background: 'rgba(34,211,238,0.1)',
+              border: '1px solid rgba(34,211,238,0.35)',
+              borderRadius: '7px',
+              color: '#22d3ee',
               fontSize: '14px',
-              fontWeight: 500,
+              fontWeight: 600,
               textDecoration: 'none',
+              boxShadow: '0 0 18px rgba(34,211,238,0.08)',
             }}
           >
             Start Learning
@@ -221,9 +221,10 @@ export default function Dashboard() {
               display: 'block',
               textAlign: 'center',
               padding: '10px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              color: '#374151',
+              background: 'rgba(15,23,42,0.5)',
+              border: '1px solid rgba(148,163,184,0.13)',
+              borderRadius: '7px',
+              color: '#94a3b8',
               fontSize: '14px',
               textDecoration: 'none',
             }}
@@ -236,7 +237,7 @@ export default function Dashboard() {
               display: 'block',
               textAlign: 'center',
               padding: '6px',
-              color: '#6b7280',
+              color: '#475569',
               fontSize: '13px',
               textDecoration: 'none',
             }}
@@ -247,8 +248,8 @@ export default function Dashboard() {
 
         {/* Recent activity */}
         {nodes.length > 0 && (
-          <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+          <div style={{ ...GLASS, padding: '16px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px' }}>
               Recent Activity
             </p>
             {nodes
@@ -256,11 +257,11 @@ export default function Dashboard() {
               .sort((a, b) => (b.last_studied_at ?? '').localeCompare(a.last_studied_at ?? ''))
               .slice(0, 4)
               .map(n => (
-                <div key={n.id} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '13px', color: '#374151' }}>
+                <div key={n.id} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '7px' }}>
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
                     {n.concept_name} — {getMasteryLabel(n.mastery_score)}
                   </span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', color: '#334155', marginLeft: '8px', flexShrink: 0 }}>
                     {formatRelativeTime(n.last_studied_at)}
                   </span>
                 </div>

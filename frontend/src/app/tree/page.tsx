@@ -10,6 +10,13 @@ import { useUser } from '@/context/UserContext';
 
 type Filter = 'all' | 'mastered' | 'learning' | 'struggling' | 'unexplored';
 
+const GLASS = {
+  background: 'rgba(8, 13, 30, 0.72)',
+  backdropFilter: 'blur(18px)',
+  WebkitBackdropFilter: 'blur(18px)',
+  border: '1px solid rgba(148, 163, 184, 0.1)',
+} as const;
+
 export default function TreePage() {
   const router = useRouter();
   const { userId } = useUser();
@@ -30,9 +37,7 @@ export default function TreePage() {
 
   useEffect(() => {
     setDimensions({ width: window.innerWidth, height: window.innerHeight - 48 });
-    const handleResize = () => {
-      setDimensions({ width: window.innerWidth, height: window.innerHeight - 48 });
-    };
+    const handleResize = () => setDimensions({ width: window.innerWidth, height: window.innerHeight - 48 });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -57,7 +62,7 @@ export default function TreePage() {
   ];
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: 'calc(100vh - 48px)', overflow: 'hidden', background: '#f9fafb' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: 'calc(100vh - 48px)', overflow: 'hidden' }}>
       <KnowledgeGraph
         nodes={filteredNodes}
         edges={filteredEdges}
@@ -67,100 +72,110 @@ export default function TreePage() {
         onNodeClick={setSelectedNode}
       />
 
-      {/* Floating top bar */}
+      {/* Floating search + filter bar */}
       <div style={{
         position: 'absolute',
-        top: '16px',
+        top: '20px',
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(255,255,255,0.95)',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
+        ...GLASS,
+        borderRadius: '10px',
         padding: '10px 16px',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+        boxShadow: '0 4px 32px rgba(0,0,0,0.4)',
         zIndex: 10,
       }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search concepts..."
+          placeholder="Search concepts…"
           style={{
             padding: '5px 10px',
-            border: '1px solid #e5e7eb',
-            borderRadius: '4px',
+            border: '1px solid rgba(148,163,184,0.15)',
+            borderRadius: '5px',
             fontSize: '13px',
             outline: 'none',
             width: '180px',
+            background: 'rgba(15,23,42,0.7)',
+            color: '#f1f5f9',
           }}
         />
         <div style={{ display: 'flex', gap: '4px' }}>
-          {FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              style={{
-                padding: '4px 10px',
-                border: '1px solid #e5e7eb',
-                borderRadius: '4px',
-                background: filter === f.value ? '#111827' : '#ffffff',
-                color: filter === f.value ? '#ffffff' : '#374151',
-                fontSize: '12px',
-                cursor: 'pointer',
-                fontWeight: filter === f.value ? 500 : 400,
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
+          {FILTERS.map(f => {
+            const active = filter === f.value;
+            return (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                style={{
+                  padding: '4px 11px',
+                  border: active ? '1px solid rgba(34,211,238,0.45)' : '1px solid rgba(148,163,184,0.12)',
+                  borderRadius: '5px',
+                  background: active ? 'rgba(34,211,238,0.12)' : 'transparent',
+                  color: active ? '#22d3ee' : '#64748b',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  fontWeight: active ? 600 : 400,
+                }}
+              >
+                {f.label}
+              </button>
+            );
+          })}
         </div>
-        <span style={{ fontSize: '12px', color: '#9ca3af' }}>{filteredNodes.length} nodes</span>
+        <span style={{ fontSize: '12px', color: '#334155' }}>{filteredNodes.length} nodes</span>
       </div>
 
-      {/* Detail panel */}
+      {/* Node detail panel */}
       {selectedNode && (
         <div style={{
           position: 'absolute',
           top: 0,
           right: 0,
           bottom: 0,
-          width: '280px',
-          background: '#ffffff',
-          borderLeft: '1px solid #e5e7eb',
-          padding: '20px',
+          width: '290px',
+          ...GLASS,
+          borderLeft: '1px solid rgba(148,163,184,0.1)',
+          borderRight: 'none',
+          borderTop: 'none',
+          borderBottom: 'none',
+          padding: '22px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
+          gap: '18px',
           overflowY: 'auto',
           zIndex: 10,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>{selectedNode.concept_name}</h2>
+            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f1f5f9', margin: 0 }}>
+              {selectedNode.concept_name}
+            </h2>
             <button
               onClick={() => setSelectedNode(null)}
-              style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '18px' }}
+              style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}
             >
-              x
+              ×
             </button>
           </div>
 
           <div>
-            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '4px' }}>Subject</p>
-            <p style={{ fontSize: '14px', color: '#374151' }}>{selectedNode.subject}</p>
+            <p style={{ fontSize: '11px', color: '#475569', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</p>
+            <p style={{ fontSize: '14px', color: '#94a3b8' }}>{selectedNode.subject}</p>
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <p style={{ fontSize: '12px', color: '#9ca3af' }}>Mastery</p>
-              <span style={{ fontSize: '13px', color: getMasteryColor(selectedNode.mastery_tier), fontWeight: 500 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <p style={{ fontSize: '11px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mastery</p>
+              <span style={{ fontSize: '13px', color: getMasteryColor(selectedNode.mastery_tier), fontWeight: 600 }}>
                 {getMasteryLabel(selectedNode.mastery_score)}
               </span>
             </div>
-            <div style={{ background: '#f3f4f6', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(15,23,42,0.8)', borderRadius: '4px', height: '5px', overflow: 'hidden' }}>
               <div style={{
                 background: getMasteryColor(selectedNode.mastery_tier),
+                boxShadow: `0 0 8px ${getMasteryColor(selectedNode.mastery_tier)}`,
                 height: '100%',
                 width: `${Math.round(selectedNode.mastery_score * 100)}%`,
                 borderRadius: '4px',
@@ -169,20 +184,19 @@ export default function TreePage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', color: '#9ca3af' }}>Last studied</span>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>{formatRelativeTime(selectedNode.last_studied_at)}</span>
+              <span style={{ fontSize: '12px', color: '#475569' }}>Last studied</span>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{formatRelativeTime(selectedNode.last_studied_at)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', color: '#9ca3af' }}>Times studied</span>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>{selectedNode.times_studied}</span>
+              <span style={{ fontSize: '12px', color: '#475569' }}>Times studied</span>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>{selectedNode.times_studied}</span>
             </div>
           </div>
 
-          {/* Connected concepts */}
           <div>
-            <p style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '6px' }}>Connected to</p>
+            <p style={{ fontSize: '11px', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Connected to</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {allEdges
                 .filter(e => e.source === selectedNode.id || e.target === selectedNode.id)
@@ -198,17 +212,16 @@ export default function TreePage() {
                         border: 'none',
                         textAlign: 'left',
                         fontSize: '13px',
-                        color: '#374151',
+                        color: '#94a3b8',
                         cursor: 'pointer',
-                        padding: '2px 0',
+                        padding: '3px 0',
                       }}
                     >
                       {other.concept_name}
                     </button>
                   ) : null;
                 })
-                .filter(Boolean)
-              }
+                .filter(Boolean)}
             </div>
           </div>
 
@@ -216,14 +229,15 @@ export default function TreePage() {
             <button
               onClick={() => router.push(`/learn?topic=${encodeURIComponent(selectedNode.concept_name)}`)}
               style={{
-                padding: '8px',
-                background: '#111827',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
+                padding: '9px',
+                background: 'rgba(34,211,238,0.12)',
+                color: '#22d3ee',
+                border: '1px solid rgba(34,211,238,0.35)',
+                borderRadius: '7px',
                 fontSize: '13px',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
+                boxShadow: '0 0 16px rgba(34,211,238,0.08)',
               }}
             >
               Learn This
@@ -231,11 +245,11 @@ export default function TreePage() {
             <button
               onClick={() => router.push(`/learn?topic=${encodeURIComponent(selectedNode.concept_name)}&mode=quiz`)}
               style={{
-                padding: '8px',
-                background: '#ffffff',
-                color: '#374151',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
+                padding: '9px',
+                background: 'rgba(15,23,42,0.6)',
+                color: '#94a3b8',
+                border: '1px solid rgba(148,163,184,0.15)',
+                borderRadius: '7px',
                 fontSize: '13px',
                 cursor: 'pointer',
               }}

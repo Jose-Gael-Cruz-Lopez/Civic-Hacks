@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -88,8 +88,17 @@ export const saveAssignments = (userId: string, assignments: any[]) =>
     body: JSON.stringify({ user_id: userId, assignments }),
   });
 
-export const getCalendarAuthUrl = () =>
-  fetchJSON<{ url: string }>('/api/calendar/auth-url');
+export const getCalendarAuthUrl = (userId: string) =>
+  fetchJSON<{ url: string }>(`/api/calendar/auth-url?user_id=${encodeURIComponent(userId)}`);
+
+export const checkCalendarStatus = (userId: string) =>
+  fetchJSON<{ connected: boolean }>(`/api/calendar/status/${userId}`);
+
+export const syncToGoogleCalendar = (userId: string) =>
+  fetchJSON<{ synced_count: number }>('/api/calendar/sync', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
 
 export const exportToGoogleCalendar = (userId: string, assignmentIds: string[]) =>
   fetchJSON<{ exported_count: number }>('/api/calendar/export', {

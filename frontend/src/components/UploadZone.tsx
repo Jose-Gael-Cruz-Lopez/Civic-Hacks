@@ -41,26 +41,26 @@ export default function UploadZone({ onFile, loading, filename }: Props) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         style={{
-          border: `2px dashed ${dragging ? '#111827' : '#d1d5db'}`,
+          border: `2px dashed ${dragging ? 'rgba(34,211,238,0.5)' : 'rgba(148,163,184,0.2)'}`,
           borderRadius: '8px',
           padding: '40px',
           textAlign: 'center',
           cursor: 'pointer',
-          background: dragging ? '#f9fafb' : '#ffffff',
+          background: dragging ? 'rgba(34,211,238,0.05)' : 'rgba(8,13,30,0.4)',
           transition: 'all 0.15s ease',
         }}
       >
         {loading ? (
-          <p style={{ color: '#6b7280', fontSize: '14px' }}>Processing...</p>
+          <p style={{ color: '#475569', fontSize: '14px' }}>Processing...</p>
         ) : filename ? (
           <div>
-            <p style={{ color: '#374151', fontSize: '14px', fontWeight: 500 }}>{filename}</p>
-            <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>Click to replace</p>
+            <p style={{ color: '#f1f5f9', fontSize: '14px', fontWeight: 500 }}>{filename}</p>
+            <p style={{ color: '#475569', fontSize: '12px', marginTop: '4px' }}>Click to replace</p>
           </div>
         ) : (
           <div>
-            <p style={{ color: '#374151', fontSize: '14px' }}>Drop a syllabus here or click to browse</p>
-            <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>PDF, PNG, JPG accepted</p>
+            <p style={{ color: '#94a3b8', fontSize: '14px' }}>Drop a syllabus here or click to browse</p>
+            <p style={{ color: '#475569', fontSize: '12px', marginTop: '4px' }}>PDF, PNG, JPG accepted</p>
           </div>
         )}
       </div>
