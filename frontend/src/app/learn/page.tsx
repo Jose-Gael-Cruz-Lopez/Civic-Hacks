@@ -14,6 +14,7 @@ import { getMasteryLabel } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
 import CustomSelect from '@/components/CustomSelect';
 import SharedContextToggle from '@/components/SharedContextToggle';
+import AIDisclaimerChip from '@/components/AIDisclaimerChip';
 
 function LearnInner() {
   const { userId: USER_ID, userReady } = useUser();
@@ -277,6 +278,7 @@ function LearnInner() {
         {sessionLoading && <span style={{ fontSize: '13px', color: '#6b7280' }}>Starting…</span>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: 'auto' }}>
+          <AIDisclaimerChip />
           <SharedContextToggle enabled={useSharedContext} onToggle={toggleSharedContext} />
 
           <ModeSelector
