@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
+const BACKEND_URL = process.env.BACKEND_URL || "https://dolorimetric-lillyana-indemonstrably.ngrok-free.dev";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,

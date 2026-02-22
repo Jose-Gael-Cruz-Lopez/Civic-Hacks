@@ -48,7 +48,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch user list from backend and reconcile the current user's name
   useEffect(() => {
-    fetch('http://localhost:5000/api/users')
+    fetch('/api/users')
       .then(r => r.json())
       .then((data: { users: UserOption[] }) => {
         const list = data.users ?? [];
