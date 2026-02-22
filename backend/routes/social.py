@@ -1,6 +1,7 @@
 import uuid
 import random
 import string
+from collections import defaultdict
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -198,3 +199,38 @@ def school_match(body: MatchBody):
         raise HTTPException(status_code=502, detail=f"Matching error: {e}")
 
     return {"matches": matches}
+
+
+@router.get("/students")
+def get_students():
+    """Return a lightweight profile for every user in the DB."""
+    users = table("users").select("id,name,streak_count")
+    courses_rows = table("courses").select("user_id,course_name")
+    nodes_rows = table("graph_nodes").select("user_id,mastery_tier")
+
+    courses_by_user: dict = defaultdict(list)
+    for c in courses_rows:
+        courses_by_user[c["user_id"]].append(c["course_name"])
+
+    mastery_by_user: dict = defaultdict(
+        lambda: {"mastered": 0, "learning": 0, "struggling": 0, "unexplored": 0, "total": 0}
+    )
+    for n in nodes_rows:
+        uid = n["user_id"]
+        tier = n["mastery_tier"]
+        mastery_by_user[uid]["total"] += 1
+        if tier in mastery_by_user[uid]:
+            mastery_by_user[uid][tier] += 1
+
+    students = [
+        {
+            "user_id": u["id"],
+            "name": u["name"],
+            "streak": u.get("streak_count") or 0,
+            "courses": sorted(courses_by_user[u["id"]]),
+            "stats": dict(mastery_by_user[u["id"]]),
+        }
+        for u in users
+    ]
+    students.sort(key=lambda s: s["name"])
+    return {"students": students}

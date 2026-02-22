@@ -189,3 +189,6 @@ export const findSchoolMatches = (userId: string) =>
     method: 'POST',
     body: JSON.stringify({ user_id: userId }),
   });
+
+export const getSchoolStudents = () =>
+  fetchJSON<{ students: any[] }>('/api/social/students');

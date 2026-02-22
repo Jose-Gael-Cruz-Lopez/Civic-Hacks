@@ -10,11 +10,13 @@ interface Props {
   userId: string;
   onSelectRoom: (roomId: string) => void;
   onRoomsChange: (rooms: Room[]) => void;
+  schoolActive?: boolean;
+  onSchoolClick?: () => void;
 }
 
 type Panel = 'none' | 'create' | 'join';
 
-export default function RoomList({ rooms, activeRoomId, userId, onSelectRoom, onRoomsChange }: Props) {
+export default function RoomList({ rooms, activeRoomId, userId, onSelectRoom, onRoomsChange, schoolActive, onSchoolClick }: Props) {
   const [panel, setPanel] = useState<Panel>('none');
   const [roomName, setRoomName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
@@ -208,6 +210,32 @@ export default function RoomList({ rooms, activeRoomId, userId, onSelectRoom, on
             style={{ marginTop: '10px', width: '100%', opacity: loading || inviteCode.length < 6 ? 0.5 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
           >
             {loading ? 'Joining…' : 'Join Room'}
+          </button>
+        </div>
+      )}
+
+      {/* My School */}
+      {onSchoolClick && (
+        <div style={{ padding: '8px 8px 4px' }}>
+          <button
+            onClick={onSchoolClick}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '10px 12px',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              background: schoolActive ? 'var(--accent-dim)' : 'transparent',
+              fontFamily: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: schoolActive ? 600 : 400, color: schoolActive ? 'var(--accent)' : 'var(--text-dim)' }}>
+              My School
+            </span>
           </button>
         </div>
       )}

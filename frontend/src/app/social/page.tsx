@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import RoomList from '@/components/RoomList';
 import RoomOverview from '@/components/RoomOverview';
 import StudyMatch from '@/components/StudyMatch';
+import SchoolDirectory from '@/components/SchoolDirectory';
 import { Room, RoomActivity, StudyMatch as StudyMatchType } from '@/lib/types';
 import { getUserRooms, getRoomOverview, getRoomActivity, findStudyMatches } from '@/lib/api';
 import { useUser } from '@/context/UserContext';
@@ -20,6 +21,7 @@ function SocialPageInner() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
+  const [schoolView, setSchoolView] = useState(false);
 
   const [overviewData, setOverviewData] = useState<any>(null);
   const [activity, setActivity] = useState<RoomActivity[]>([]);
@@ -106,16 +108,20 @@ function SocialPageInner() {
       <div className="panel-in panel-in-1" style={{ width: '240px', background: '#f2f7f2', borderRight: '1px solid rgba(107,114,128,0.12)', overflowY: 'auto' }}>
         <RoomList
           rooms={rooms}
-          activeRoomId={activeRoomId}
+          activeRoomId={schoolView ? null : activeRoomId}
           userId={USER_ID}
-          onSelectRoom={id => { setActiveRoomId(id); setTab('overview'); }}
+          onSelectRoom={id => { setSchoolView(false); setActiveRoomId(id); setTab('overview'); }}
           onRoomsChange={setRooms}
+          schoolActive={schoolView}
+          onSchoolClick={() => setSchoolView(true)}
         />
       </div>
 
       {/* Main area */}
       <div className="panel-in panel-in-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {activeRoomId ? (
+        {schoolView ? (
+          <SchoolDirectory currentUserId={USER_ID} />
+        ) : activeRoomId ? (
           <>
             {/* Tabs */}
             <div style={{ background: '#f0f5f0', borderBottom: '1px solid rgba(107,114,128,0.12)', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
