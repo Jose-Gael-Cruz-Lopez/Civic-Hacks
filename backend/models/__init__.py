@@ -85,3 +85,7 @@ class MatchBody(BaseModel):
 class ExportBody(BaseModel):
     user_id: str = "user_john"
     assignment_ids: list[str]
+
+
+class SyncBody(BaseModel):
+    user_id: str = "user_john"

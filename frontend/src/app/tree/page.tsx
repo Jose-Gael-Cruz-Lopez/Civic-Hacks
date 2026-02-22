@@ -11,9 +11,7 @@ import { useUser } from '@/context/UserContext';
 type Filter = 'all' | 'mastered' | 'learning' | 'struggling' | 'unexplored';
 
 const GLASS = {
-  background: 'rgba(8, 13, 30, 0.72)',
-  backdropFilter: 'blur(18px)',
-  WebkitBackdropFilter: 'blur(18px)',
+  background: '#0c1525',
   border: '1px solid rgba(148, 163, 184, 0.1)',
 } as const;
 

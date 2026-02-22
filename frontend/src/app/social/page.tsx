@@ -85,7 +85,7 @@ export default function SocialPage() {
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 48px)' }}>
       {/* Left sidebar */}
-      <div style={{ width: '240px', background: 'rgba(5,10,25,0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderRight: '1px solid rgba(148,163,184,0.08)', overflowY: 'auto' }}>
+      <div style={{ width: '240px', background: '#070f1d', borderRight: '1px solid rgba(148,163,184,0.08)', overflowY: 'auto' }}>
         <RoomList
           rooms={rooms}
           activeRoomId={activeRoomId}
@@ -100,7 +100,7 @@ export default function SocialPage() {
         {activeRoomId ? (
           <>
             {/* Tabs */}
-            <div style={{ background: 'rgba(3,7,18,0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(148,163,184,0.08)', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ background: '#040912', borderBottom: '1px solid rgba(148,163,184,0.08)', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
               <button style={tabStyle('overview')} onClick={() => setTab('overview')}>Overview</button>
               <button style={tabStyle('match')} onClick={() => setTab('match')}>Study Match</button>
               <button style={tabStyle('activity')} onClick={() => setTab('activity')}>Activity</button>

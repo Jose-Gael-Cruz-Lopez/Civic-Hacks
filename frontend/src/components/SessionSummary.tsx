@@ -14,9 +14,7 @@ export default function SessionSummary({ summary, onDashboard, onNewSession }: P
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(3,7,18,0.75)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        background: 'rgba(3,7,18,0.92)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -25,9 +23,7 @@ export default function SessionSummary({ summary, onDashboard, onNewSession }: P
     >
       <div
         style={{
-          background: 'rgba(8,13,30,0.92)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
+          background: '#0c1525',
           border: '1px solid rgba(148,163,184,0.12)',
           borderRadius: '12px',
           padding: '32px',

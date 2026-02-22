@@ -42,13 +42,14 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#060d1b' }}>
       {/* Mode description */}
       <div style={{
         padding: '10px 16px',
         borderBottom: '1px solid rgba(148,163,184,0.08)',
         color: '#475569',
         fontSize: '12px',
+        background: '#04080f',
       }}>
         {MODE_DESCRIPTIONS[mode]}
       </div>
@@ -69,8 +70,8 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
                 padding: '10px 14px',
                 borderRadius: '8px',
                 background: msg.role === 'user'
-                  ? 'rgba(34,211,238,0.08)'
-                  : 'rgba(15,23,42,0.6)',
+                  ? '#0e2535'
+                  : '#0c1525',
                 color: '#f1f5f9',
                 fontSize: '15px',
                 lineHeight: 1.6,
@@ -114,7 +115,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
               style={{
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: 'rgba(15,23,42,0.6)',
+                background: '#0c1525',
                 border: '1px solid rgba(148,163,184,0.1)',
                 color: '#475569',
                 fontSize: '15px',
@@ -128,7 +129,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
       </div>
 
       {/* Input area */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(148,163,184,0.08)' }}>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(148,163,184,0.08)', background: '#04080f' }}>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
           <textarea
             value={input}
@@ -143,7 +144,7 @@ export default function ChatPanel({ messages, onSend, onAction, onEndSession, lo
               borderRadius: '6px',
               fontSize: '14px',
               color: '#f1f5f9',
-              background: 'rgba(15,23,42,0.7)',
+              background: '#0c1525',
               resize: 'none',
               outline: 'none',
               fontFamily: 'inherit',

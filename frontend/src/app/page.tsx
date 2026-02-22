@@ -17,9 +17,7 @@ const STATS_LABELS: Record<string, string> = {
 };
 
 const GLASS: React.CSSProperties = {
-  background: 'rgba(8, 13, 30, 0.65)',
-  backdropFilter: 'blur(16px)',
-  WebkitBackdropFilter: 'blur(16px)',
+  background: '#0c1525',
   border: '1px solid rgba(148, 163, 184, 0.1)',
   borderRadius: '10px',
 };

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Assignment } from '@/lib/types';
+import CustomSelect from '@/components/CustomSelect';
 
 interface Props {
   assignments: Assignment[];
@@ -87,7 +88,7 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
     border: '1px solid transparent',
     borderRadius: '4px',
     fontSize: '13px',
-    color: '#374151',
+    color: '#f1f5f9',
     background: 'transparent',
     outline: 'none',
   };
@@ -95,12 +96,12 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
   const headerStyle = {
     fontSize: '11px',
     fontWeight: 500 as const,
-    color: '#6b7280',
+    color: '#475569',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.05em',
     padding: '8px 10px',
     textAlign: 'left' as const,
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: '1px solid rgba(148,163,184,0.1)',
   };
 
   const rows = useMemo(() => {
@@ -138,31 +139,26 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6b7280', fontWeight: 500 }}>
+          <label style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', fontWeight: 500 }}>
             Sort by
           </label>
-          <select
+          <CustomSelect
             value={sortKey}
-            onChange={e => setSortKey(e.target.value as SortKey)}
-            style={{ ...inputStyle, width: '160px', borderColor: '#e5e7eb', cursor: 'pointer' }}
-          >
-            {SORT_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={val => setSortKey(val as SortKey)}
+            options={SORT_OPTIONS}
+            style={{ minWidth: '160px' }}
+          />
           {sortKey !== 'custom' && (
             <button
               onClick={() => setSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
               style={{
                 padding: '4px 10px',
                 borderRadius: '4px',
-                border: '1px solid #e5e7eb',
-                background: '#ffffff',
+                border: '1px solid rgba(148,163,184,0.2)',
+                background: '#0c1525',
                 fontSize: '12px',
                 cursor: 'pointer',
-                color: '#374151',
+                color: '#94a3b8',
               }}
             >
               {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
@@ -171,10 +167,10 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
         </div>
       </div>
 
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+      <div style={{ border: '1px solid rgba(148,163,184,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#f9fafb' }}>
+            <tr style={{ background: '#08111f' }}>
               {onToggleSelect && <th style={{ ...headerStyle, width: '32px' }}></th>}
               <th style={{ ...headerStyle, width: '120px' }}>Date</th>
               <th style={{ ...headerStyle, width: '120px' }}>Course</th>
@@ -199,12 +195,12 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
                 onDrop={() => handleDrop(rowPosition)}
                 onDragEnd={() => setDraggingIndex(null)}
                 style={{
-                  borderBottom: rowPosition < rows.length - 1 ? '1px solid #f3f4f6' : 'none',
+                  borderBottom: rowPosition < rows.length - 1 ? '1px solid rgba(148,163,184,0.06)' : 'none',
                   background: selectedIds?.includes(a.id)
-                    ? '#f0fdf4'
+                    ? 'rgba(34,197,94,0.08)'
                     : draggingIndex === rowPosition
-                      ? '#fefce8'
-                      : '#ffffff',
+                      ? 'rgba(251,191,36,0.08)'
+                      : '#0c1525',
                   cursor: canReorder ? 'grab' : 'default',
                 }}
               >
@@ -252,7 +248,7 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
                     onChange={e => update(index, 'course_name', e.target.value)}
                     placeholder="Course"
                     style={inputStyle}
-                    onFocus={e => (e.target.style.borderColor = '#e5e7eb')}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(148,163,184,0.25)')}
                     onBlur={e => (e.target.style.borderColor = 'transparent')}
                   />
                 </td>
@@ -262,22 +258,18 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
                     onChange={e => update(index, 'title', e.target.value)}
                     placeholder="Title"
                     style={inputStyle}
-                    onFocus={e => (e.target.style.borderColor = '#e5e7eb')}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(148,163,184,0.25)')}
                     onBlur={e => (e.target.style.borderColor = 'transparent')}
                   />
                 </td>
                 <td style={{ padding: '4px 6px' }}>
-                  <select
+                  <CustomSelect
                     value={a.assignment_type}
-                    onChange={e => update(index, 'assignment_type', e.target.value)}
-                    style={{ ...inputStyle, cursor: 'pointer' }}
-                  >
-                    {TYPES.map(t => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={val => update(index, 'assignment_type', val)}
+                    options={TYPES.map(t => ({ value: t, label: t }))}
+                    compact
+                    style={{ width: '100%' }}
+                  />
                 </td>
                 <td style={{ padding: '4px 6px' }}>
                   <input
@@ -285,7 +277,7 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
                     onChange={e => update(index, 'notes' as any, e.target.value)}
                     placeholder="Notes"
                     style={inputStyle}
-                    onFocus={e => (e.target.style.borderColor = '#e5e7eb')}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(148,163,184,0.25)')}
                     onBlur={e => (e.target.style.borderColor = 'transparent')}
                   />
                 </td>
@@ -295,7 +287,7 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#9ca3af',
+                      color: '#475569',
                       cursor: 'pointer',
                       fontSize: '16px',
                       lineHeight: 1,
@@ -318,7 +310,7 @@ export default function AssignmentTable({ assignments, onChange, selectedIds, on
           marginTop: '8px',
           background: 'none',
           border: 'none',
-          color: '#6b7280',
+          color: '#475569',
           fontSize: '13px',
           cursor: 'pointer',
           padding: '4px 0',

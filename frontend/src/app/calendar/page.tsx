@@ -233,7 +233,7 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
   });
 
   return (
-    <div style={{ border: '1px solid rgba(148,163,184,0.1)', borderRadius: '10px', overflow: 'hidden', background: 'rgba(8,13,30,0.5)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+    <div style={{ border: '1px solid rgba(148,163,184,0.1)', borderRadius: '10px', overflow: 'hidden', background: '#0c1525' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(148,163,184,0.08)', background: 'rgba(3,7,18,0.4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -422,14 +422,16 @@ function CalendarInner() {
         </div>
       )}
 
-      {assignments.length > 0 && (
-        <div>
-          <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            All Assignments
-          </p>
+      <div>
+        <p style={{ fontSize: '12px', fontWeight: 500, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+          All Assignments
+        </p>
+        {assignments.length === 0 ? (
+          <p style={{ color: '#475569', fontSize: '13px' }}>No assignments yet. Import a syllabus to get started.</p>
+        ) : (
           <AssignmentTable assignments={assignments} onChange={setAssignments} />
-        </div>
-      )}
+        )}
+      </div>
 
       <div style={{ border: '1px solid rgba(148,163,184,0.1)', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(8,13,30,0.4)' }}>
         {googleConnected ? (

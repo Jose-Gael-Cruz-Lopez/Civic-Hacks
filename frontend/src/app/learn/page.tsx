@@ -12,6 +12,7 @@ import { startSession, sendChat, sendAction, endSession, getGraph, getSessions, 
 import Link from 'next/link';
 import { getMasteryLabel } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
+import CustomSelect from '@/components/CustomSelect';
 
 function LearnInner() {
   const { userId: USER_ID } = useUser();
@@ -180,9 +181,7 @@ function LearnInner() {
     <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div style={{
-        background: 'rgba(3,7,18,0.75)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        background: '#04080f',
         borderBottom: '1px solid rgba(148,163,184,0.1)',
         padding: '0 20px',
         height: '52px',
@@ -195,50 +194,26 @@ function LearnInner() {
           ←
         </Link>
 
-        <select
+        <CustomSelect
           value={selectedCourse}
-          onChange={e => handleSelectCourse(e.target.value)}
-          style={{
-            padding: '5px 10px',
-            border: '1px solid rgba(148,163,184,0.2)',
-            borderRadius: '4px',
-            fontSize: '13px',
-            color: '#f1f5f9',
-            background: 'rgba(15,23,42,0.7)',
-            cursor: 'pointer',
-            outline: 'none',
-          }}
-        >
-          <option value="">Select a course…</option>
-          {courses.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+          onChange={handleSelectCourse}
+          placeholder="Select a course…"
+          options={courses.map(c => ({ value: c, label: c }))}
+          style={{ minWidth: '160px' }}
+        />
 
         {/* Resume past session */}
         {recentSessions.length > 0 && (
-          <select
-            defaultValue=""
-            onChange={e => { handleResumeSession(e.target.value); e.target.value = ''; }}
-            style={{
-              padding: '5px 10px',
-              border: '1px solid rgba(148,163,184,0.2)',
-              borderRadius: '4px',
-              fontSize: '13px',
-              color: '#f1f5f9',
-              background: 'rgba(15,23,42,0.7)',
-              cursor: 'pointer',
-              outline: 'none',
-            }}
-          >
-            <option value="" disabled>Resume session…</option>
-            {recentSessions.map(s => {
+          <CustomSelect
+            value=""
+            onChange={sid => handleResumeSession(sid)}
+            placeholder="Resume session…"
+            options={recentSessions.map(s => {
               const date = new Date(s.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-              return (
-                <option key={s.id} value={s.id}>
-                  {s.topic} · {s.mode} · {date}{s.is_active ? ' ●' : ''}
-                </option>
-              );
+              return { value: s.id, label: `${s.topic} · ${s.mode} · ${date}${s.is_active ? ' ●' : ''}` };
             })}
-          </select>
+            style={{ minWidth: '200px' }}
+          />
         )}
 
         {topic && (

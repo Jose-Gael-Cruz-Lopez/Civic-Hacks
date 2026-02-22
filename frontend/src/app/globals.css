@@ -59,8 +59,6 @@ input, select, textarea {
 
 /* Glass panel utility */
 .glass {
-  background: var(--bg-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #0c1525;
   border: 1px solid var(--border-glass);
 }

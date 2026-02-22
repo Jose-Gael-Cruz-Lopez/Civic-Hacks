@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES, FRONTEND_URL
 from db.connection import get_conn
-from models import SaveAssignmentsBody, StudyBlockBody, ExportBody
+from models import SaveAssignmentsBody, StudyBlockBody, ExportBody, SyncBody
 from services.calendar_service import extract_assignments_from_file
 
 try:
@@ -92,6 +92,60 @@ def suggest_study_blocks(body: StudyBlockBody):
             "related_assignment_id": a["id"],
         })
     return {"study_blocks": blocks[:5]}
+
+
+@router.get("/status/{user_id}")
+def calendar_status(user_id: str):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT access_token FROM oauth_tokens WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    return {"connected": row is not None and bool(row["access_token"])}
+
+
+@router.post("/sync")
+def sync_to_google(body: SyncBody):
+    if not GOOGLE_AVAILABLE:
+        raise HTTPException(status_code=400, detail="Google Calendar libraries not installed")
+    conn = get_conn()
+    token_row = conn.execute(
+        "SELECT * FROM oauth_tokens WHERE user_id = ?", (body.user_id,)
+    ).fetchone()
+    if not token_row:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Not connected to Google Calendar")
+    creds = Credentials(
+        token=token_row["access_token"],
+        refresh_token=token_row["refresh_token"],
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        token_uri="https://oauth2.googleapis.com/token",
+    )
+    service = build("calendar", "v3", credentials=creds)
+    unsynced = conn.execute(
+        "SELECT * FROM assignments WHERE user_id = ? AND (google_event_id IS NULL OR google_event_id = '')",
+        (body.user_id,),
+    ).fetchall()
+    synced = 0
+    for row in unsynced:
+        a = dict(row)
+        if not a.get("due_date"):
+            continue
+        event = {
+            "summary": f"[{a['course_name']}] {a['title']}" if a.get("course_name") else a["title"],
+            "description": a.get("notes") or "",
+            "start": {"date": a["due_date"]},
+            "end": {"date": a["due_date"]},
+        }
+        created = service.events().insert(calendarId="primary", body=event).execute()
+        conn.execute(
+            "UPDATE assignments SET google_event_id = ? WHERE id = ?", (created["id"], a["id"])
+        )
+        synced += 1
+    conn.commit()
+    conn.close()
+    return {"synced_count": synced}
 
 
 @router.get("/auth-url")

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/context/UserContext';
+import CustomSelect from '@/components/CustomSelect';
 
 const LINKS = [
   { href: '/', label: 'Dashboard' },
@@ -67,32 +68,19 @@ export default function Navbar() {
       </div>
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-        <select
+        <CustomSelect
           value={userId}
-          onChange={e => {
-            const selected = users.find(u => u.id === e.target.value);
-            if (selected) setActiveUser(selected.id, selected.name);
+          onChange={val => {
+            const u = users.find(u => u.id === val);
+            if (u) setActiveUser(u.id, u.name);
           }}
-          style={{
-            padding: '5px 10px',
-            border: '1px solid rgba(148, 163, 184, 0.18)',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: 500,
-            color: '#f1f5f9',
-            background: 'rgba(15, 23, 42, 0.85)',
-            cursor: 'pointer',
-            outline: 'none',
-            minWidth: '120px',
-          }}
-        >
-          {users.length === 0
-            ? <option value={userId}>{userName}</option>
-            : users.map(u => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))
+          options={
+            users.length === 0
+              ? [{ value: userId, label: userName }]
+              : users.map(u => ({ value: u.id, label: u.name }))
           }
-        </select>
+          style={{ minWidth: '130px' }}
+        />
       </div>
     </nav>
   );
