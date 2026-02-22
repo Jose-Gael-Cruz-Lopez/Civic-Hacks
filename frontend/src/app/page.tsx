@@ -67,8 +67,11 @@ export default function Dashboard() {
   const [displayedGreeting, setDisplayedGreeting] = useState('');
   const [greetingDone, setGreetingDone] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
-  const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  const [quote, setQuote] = useState(QUOTES[0]);
 
+useEffect(() => {
+  setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+}, []);
   // Collapsed courses state (set of subject names that are collapsed)
   const [collapsedCourses, setCollapsedCourses] = useState<Set<string>>(new Set());
 
