@@ -15,14 +15,14 @@ interface UserContextValue {
 }
 
 const UserContext = createContext<UserContextValue>({
-  userId: 'user_john',
+  userId: 'user_andres',
   userName: 'Andres Lopez',
   users: [],
   setActiveUser: () => {},
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [userId, setUserId] = useState('user_john');
+  const [userId, setUserId] = useState('user_andres');
   const [userName, setUserName] = useState('Andres Lopez');
   const [users, setUsers] = useState<UserOption[]>([]);
 

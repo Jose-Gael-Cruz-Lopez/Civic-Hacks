@@ -9,9 +9,9 @@ but won't update changed values either. Delete sapling.db first
 to do a full reset, then run init_db.py then seed.py.
 
 Users:
-  user_john  — Andres Lopez (CS major)   CS 101, CS 112, MA 121, MA 213, MA 311
-  user_maria — Jack He      (CS major)   CS 101, CS 112, MA 121, MA 213, MA 311
-  user_alex  — Luke Cooper  (Math major) MA 121, MA 213, MA 311, CS 101
+  user_andres  — Andres Lopez (CS major)   CS 101, CS 112, MA 121, MA 213, MA 311
+  user_jack — Jack He      (CS major)   CS 101, CS 112, MA 121, MA 213, MA 311
+  user_luke  — Luke Cooper  (Math major) MA 121, MA 213, MA 311, CS 101
   user_priya — Priya Patel  (Math major) MA 121, MA 213, CS 112
 
 Shared classes per pair (all pairs share ≥ 2):
@@ -40,9 +40,9 @@ def get_conn():
 # ─── Users ────────────────────────────────────────────────────────────────────
 
 USERS = [
-    ("user_john",  "Andres Lopez", "andres@example.com", 8,  "CS major"),
-    ("user_maria", "Jack He",      "jack@example.com",   5,  "CS major"),
-    ("user_alex",  "Luke Cooper",  "luke@example.com",   7,  "Math major"),
+    ("user_andres",  "Andres Lopez", "andres@example.com", 8,  "CS major"),
+    ("user_jack", "Jack He",      "jack@example.com",   5,  "CS major"),
+    ("user_luke",  "Luke Cooper",  "luke@example.com",   7,  "Math major"),
     ("user_priya", "Priya Patel",  "priya@example.com",  3,  "Math major"),
 ]
 
@@ -292,21 +292,66 @@ PRIYA_EDGES = [
 ]
 
 
-# ─── Assignments (John only) ──────────────────────────────────────────────────
+# ─── Assignments (all users) ──────────────────────────────────────────────────
 
+# Andres Lopez (user_andres)
 JOHN_ASSIGNMENTS = [
-    {"title": "Lab 4: Functions & Scope",    "course_name": "CS 101",  "due_date": "2026-03-03", "assignment_type": "homework"},
-    {"title": "Problem Set 5: Derivatives",  "course_name": "MA 121",  "due_date": "2026-03-05", "assignment_type": "homework"},
-    {"title": "Lab 5: Linked Lists",         "course_name": "CS 112",  "due_date": "2026-03-07", "assignment_type": "homework"},
-    {"title": "Stats Midterm",               "course_name": "MA 213",  "due_date": "2026-03-12", "assignment_type": "exam"},
-    {"title": "Midterm Exam",                "course_name": "MA 121",  "due_date": "2026-03-14", "assignment_type": "exam"},
-    {"title": "Programming Project 2",       "course_name": "CS 101",  "due_date": "2026-03-21", "assignment_type": "project"},
-    {"title": "CS 112 Midterm",              "course_name": "CS 112",  "due_date": "2026-03-26", "assignment_type": "exam"},
-    {"title": "Problem Set 6: Chain Rule",   "course_name": "MA 121",  "due_date": "2026-04-02", "assignment_type": "homework"},
-    {"title": "Lab 6: Binary Trees",         "course_name": "CS 112",  "due_date": "2026-04-09", "assignment_type": "homework"},
-    {"title": "Stats Problem Set 4",         "course_name": "MA 213",  "due_date": "2026-04-14", "assignment_type": "homework"},
-    {"title": "Final Project",               "course_name": "CS 101",  "due_date": "2026-04-28", "assignment_type": "project"},
-    {"title": "Final Exam",                  "course_name": "MA 121",  "due_date": "2026-05-08", "assignment_type": "exam"},
+    {"title": "Lab 4: Functions & Scope",        "course_name": "CS 101",  "due_date": "2026-03-03", "assignment_type": "homework"},
+    {"title": "Problem Set 5: Derivatives",      "course_name": "MA 121",  "due_date": "2026-03-05", "assignment_type": "homework"},
+    {"title": "Lab 5: Linked Lists",             "course_name": "CS 112",  "due_date": "2026-03-07", "assignment_type": "homework"},
+    {"title": "Linear Algebra Problem Set 2",    "course_name": "MA 311",  "due_date": "2026-03-10", "assignment_type": "homework"},
+    {"title": "Stats Midterm",                   "course_name": "MA 213",  "due_date": "2026-03-12", "assignment_type": "exam"},
+    {"title": "Midterm Exam",                    "course_name": "MA 121",  "due_date": "2026-03-14", "assignment_type": "exam"},
+    {"title": "Programming Project 2",           "course_name": "CS 101",  "due_date": "2026-03-21", "assignment_type": "project"},
+    {"title": "CS 112 Midterm",                  "course_name": "CS 112",  "due_date": "2026-03-26", "assignment_type": "exam"},
+    {"title": "Problem Set 6: Chain Rule",       "course_name": "MA 121",  "due_date": "2026-04-02", "assignment_type": "homework"},
+    {"title": "Linear Algebra Midterm",          "course_name": "MA 311",  "due_date": "2026-04-07", "assignment_type": "exam"},
+    {"title": "Lab 6: Binary Trees",             "course_name": "CS 112",  "due_date": "2026-04-09", "assignment_type": "homework"},
+    {"title": "Stats Problem Set 4",             "course_name": "MA 213",  "due_date": "2026-04-14", "assignment_type": "homework"},
+    {"title": "Final Project",                   "course_name": "CS 101",  "due_date": "2026-04-28", "assignment_type": "project"},
+    {"title": "Linear Algebra Final",            "course_name": "MA 311",  "due_date": "2026-05-05", "assignment_type": "exam"},
+    {"title": "Final Exam",                      "course_name": "MA 121",  "due_date": "2026-05-08", "assignment_type": "exam"},
+]
+
+# Jack He (user_jack)
+MARIA_ASSIGNMENTS = [
+    {"title": "Programming Lab 4",               "course_name": "CS 101",  "due_date": "2026-03-04", "assignment_type": "homework"},
+    {"title": "Linear Algebra Problem Set 2",    "course_name": "MA 311",  "due_date": "2026-03-10", "assignment_type": "homework"},
+    {"title": "Data Structures Project 1",       "course_name": "CS 112",  "due_date": "2026-03-13", "assignment_type": "project"},
+    {"title": "Calculus Midterm",                "course_name": "MA 121",  "due_date": "2026-03-15", "assignment_type": "exam"},
+    {"title": "CS 101 Midterm",                  "course_name": "CS 101",  "due_date": "2026-03-20", "assignment_type": "exam"},
+    {"title": "Stats Quiz 3",                    "course_name": "MA 213",  "due_date": "2026-03-25", "assignment_type": "quiz"},
+    {"title": "Linear Algebra Midterm",          "course_name": "MA 311",  "due_date": "2026-04-07", "assignment_type": "exam"},
+    {"title": "CS 112 Lab: Hash Tables",         "course_name": "CS 112",  "due_date": "2026-04-10", "assignment_type": "homework"},
+    {"title": "Programming Project 3",           "course_name": "CS 101",  "due_date": "2026-04-24", "assignment_type": "project"},
+    {"title": "Linear Algebra Final",            "course_name": "MA 311",  "due_date": "2026-05-05", "assignment_type": "exam"},
+    {"title": "CS 112 Final Exam",               "course_name": "CS 112",  "due_date": "2026-05-09", "assignment_type": "exam"},
+]
+
+# Luke Cooper (user_luke)
+ALEX_ASSIGNMENTS = [
+    {"title": "Calculus Problem Set 6",          "course_name": "MA 121",  "due_date": "2026-03-03", "assignment_type": "homework"},
+    {"title": "Linear Algebra Problem Set 2",    "course_name": "MA 311",  "due_date": "2026-03-10", "assignment_type": "homework"},
+    {"title": "Stats Midterm",                   "course_name": "MA 213",  "due_date": "2026-03-12", "assignment_type": "exam"},
+    {"title": "MA 121 Midterm",                  "course_name": "MA 121",  "due_date": "2026-03-17", "assignment_type": "exam"},
+    {"title": "CS 101 Lab 3",                    "course_name": "CS 101",  "due_date": "2026-03-24", "assignment_type": "homework"},
+    {"title": "Linear Algebra Midterm",          "course_name": "MA 311",  "due_date": "2026-04-07", "assignment_type": "exam"},
+    {"title": "Stats Problem Set 4",             "course_name": "MA 213",  "due_date": "2026-04-11", "assignment_type": "homework"},
+    {"title": "Integration Take-Home",           "course_name": "MA 121",  "due_date": "2026-04-20", "assignment_type": "homework"},
+    {"title": "Linear Algebra Final",            "course_name": "MA 311",  "due_date": "2026-05-05", "assignment_type": "exam"},
+    {"title": "MA 213 Final Exam",               "course_name": "MA 213",  "due_date": "2026-05-10", "assignment_type": "exam"},
+]
+
+# Priya Patel (user_priya)
+PRIYA_ASSIGNMENTS = [
+    {"title": "Calculus Problem Set 6",          "course_name": "MA 121",  "due_date": "2026-03-03", "assignment_type": "homework"},
+    {"title": "Stats Midterm",                   "course_name": "MA 213",  "due_date": "2026-03-12", "assignment_type": "exam"},
+    {"title": "CS 112 Lab: Linked Lists",        "course_name": "CS 112",  "due_date": "2026-03-18", "assignment_type": "homework"},
+    {"title": "MA 121 Midterm",                  "course_name": "MA 121",  "due_date": "2026-03-19", "assignment_type": "exam"},
+    {"title": "Stats Problem Set 4",             "course_name": "MA 213",  "due_date": "2026-04-11", "assignment_type": "homework"},
+    {"title": "CS 112 Midterm",                  "course_name": "CS 112",  "due_date": "2026-04-16", "assignment_type": "exam"},
+    {"title": "MA 121 Final Exam",               "course_name": "MA 121",  "due_date": "2026-05-06", "assignment_type": "exam"},
+    {"title": "MA 213 Final Exam",               "course_name": "MA 213",  "due_date": "2026-05-10", "assignment_type": "exam"},
 ]
 
 
@@ -330,18 +375,18 @@ def seed_assignments(user_id: str, assignments: list):
 ROOM_ID      = "room_main"
 ROOM_NAME    = "CS & Math Study Group"
 ROOM_CODE    = "JDX7K2"
-ROOM_MEMBERS = ["user_john", "user_maria", "user_alex", "user_priya"]
+ROOM_MEMBERS = ["user_andres", "user_jack", "user_luke", "user_priya"]
 
 ROOM_ACTIVITY = [
-    {"user": "user_maria", "type": "mastered",  "concept": "Functions",            "detail": "85%"},
-    {"user": "user_alex",  "type": "mastered",  "concept": "Basic Derivatives",    "detail": "88%"},
-    {"user": "user_john",  "type": "learned",   "concept": "Chain Rule",           "detail": "28%"},
-    {"user": "user_maria", "type": "quizzed",   "concept": "Recursion",            "detail": "7/10"},
-    {"user": "user_alex",  "type": "streak",    "concept": None,                   "detail": "7-day streak"},
-    {"user": "user_john",  "type": "learned",   "concept": "Product & Quotient Rule","detail": "50%"},
+    {"user": "user_jack", "type": "mastered",  "concept": "Functions",            "detail": "85%"},
+    {"user": "user_luke",  "type": "mastered",  "concept": "Basic Derivatives",    "detail": "88%"},
+    {"user": "user_andres",  "type": "learned",   "concept": "Chain Rule",           "detail": "28%"},
+    {"user": "user_jack", "type": "quizzed",   "concept": "Recursion",            "detail": "7/10"},
+    {"user": "user_luke",  "type": "streak",    "concept": None,                   "detail": "7-day streak"},
+    {"user": "user_andres",  "type": "learned",   "concept": "Product & Quotient Rule","detail": "50%"},
     {"user": "user_priya", "type": "mastered",  "concept": "Probability Basics",   "detail": "88%"},
     {"user": "user_priya", "type": "joined",    "concept": None,                   "detail": "joined the room"},
-    {"user": "user_maria", "type": "joined",    "concept": None,                   "detail": "joined the room"},
+    {"user": "user_jack", "type": "joined",    "concept": None,                   "detail": "joined the room"},
 ]
 
 
@@ -349,7 +394,7 @@ def seed_room():
     conn = get_conn()
     conn.execute(
         "INSERT OR IGNORE INTO rooms (id, name, invite_code, created_by) VALUES (?, ?, ?, ?)",
-        (ROOM_ID, ROOM_NAME, ROOM_CODE, "user_john"),
+        (ROOM_ID, ROOM_NAME, ROOM_CODE, "user_andres"),
     )
     for uid in ROOM_MEMBERS:
         conn.execute(
@@ -380,12 +425,15 @@ if __name__ == "__main__":
     print("Seeding users...")
     seed_users()
     print("Seeding graphs...")
-    seed_graph("user_john",  JOHN_NODES,  JOHN_EDGES)
-    seed_graph("user_maria", MARIA_NODES, MARIA_EDGES)
-    seed_graph("user_alex",  ALEX_NODES,  ALEX_EDGES)
+    seed_graph("user_andres",  JOHN_NODES,  JOHN_EDGES)
+    seed_graph("user_jack", MARIA_NODES, MARIA_EDGES)
+    seed_graph("user_luke",  ALEX_NODES,  ALEX_EDGES)
     seed_graph("user_priya", PRIYA_NODES, PRIYA_EDGES)
     print("Seeding assignments...")
-    seed_assignments("user_john", JOHN_ASSIGNMENTS)
+    seed_assignments("user_andres",  JOHN_ASSIGNMENTS)
+    seed_assignments("user_jack", MARIA_ASSIGNMENTS)
+    seed_assignments("user_luke",  ALEX_ASSIGNMENTS)
+    seed_assignments("user_priya", PRIYA_ASSIGNMENTS)
     print("Seeding room...")
     seed_room()
     print(f"\nDone! DB: {DATABASE_PATH}")
