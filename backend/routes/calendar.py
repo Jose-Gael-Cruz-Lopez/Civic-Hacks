@@ -16,7 +16,7 @@ import json
 import base64
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import RedirectResponse
 
 from config import (
@@ -28,7 +28,7 @@ from config import (
 )
 from db.connection import get_conn
 from models import SaveAssignmentsBody, StudyBlockBody, ExportBody, SyncBody
-from services.calendar_service import extract_assignments_from_file
+from services.calendar_service import process_and_save_syllabus
 
 try:
     from google_auth_oauthlib.flow import Flow
@@ -141,15 +141,18 @@ def _require_google_creds(user_id: str):
 # ── Syllabus extraction ───────────────────────────────────────────────────────
 
 @router.post("/extract")
-async def extract(file: UploadFile = File(...)):
+async def extract(
+    file: UploadFile = File(...),
+    user_id: str = Form("user_andres"),
+):
     file_bytes = await file.read()
     filename = file.filename or "upload"
     content_type = file.content_type or "application/octet-stream"
     try:
-        result = extract_assignments_from_file(file_bytes, filename, content_type)
+        result = process_and_save_syllabus(file_bytes, filename, content_type, user_id)
         return result
     except Exception as e:
-        return {"error": str(e), "assignments": [], "warnings": [str(e)]}
+        return {"error": str(e), "assignments": [], "saved_count": 0, "warnings": [str(e)]}
 
 
 # ── Assignment CRUD ───────────────────────────────────────────────────────────

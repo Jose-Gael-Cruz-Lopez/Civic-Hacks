@@ -7,7 +7,6 @@ import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
 import {
   extractSyllabus,
-  saveAssignments,
   getUpcomingAssignments,
   getCalendarAuthUrl,
   getCalendarStatus,
@@ -279,7 +278,6 @@ function CalendarInner() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadFilename, setUploadFilename] = useState('');
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncedCount, setSyncedCount] = useState<number | null>(null);
@@ -314,7 +312,8 @@ function CalendarInner() {
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await extractSyllabus(form);
+      // Backend now auto-saves to DB and returns saved_count
+      const res = await extractSyllabus(form, USER_ID);
       const mapped: Assignment[] = (res.assignments ?? []).map((a: any, i: number) => ({
         id: `extracted_${i}_${Date.now()}`,
         title: a.title ?? '',
@@ -328,27 +327,19 @@ function CalendarInner() {
       setWarnings(res.warnings ?? []);
       setRawText(res.raw_text ?? '');
       setFileProcessed(true);
+      // Merge into calendar immediately — already saved in DB
+      if (mapped.length > 0) {
+        setAssignments(prev => {
+          const titles = new Set(prev.map(a => a.title));
+          return [...prev, ...mapped.filter(a => !titles.has(a.title))];
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
     } catch (e: any) {
       setWarnings([e.message || 'Extraction failed']);
     } finally {
       setUploadLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await saveAssignments(USER_ID, extractedAssignments);
-      setAssignments(prev => {
-        const ids = new Set(prev.map(a => a.id));
-        return [...prev, ...extractedAssignments.filter(a => !ids.has(a.id))];
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -428,24 +419,21 @@ function CalendarInner() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {extractedAssignments.length > 0
-                ? `Detected ${extractedAssignments.length} assignment${extractedAssignments.length !== 1 ? 's' : ''} — edit before saving`
-                : 'No assignments detected — add rows manually'}
+                ? `Detected ${extractedAssignments.length} assignment${extractedAssignments.length !== 1 ? 's' : ''}`
+                : 'No assignments detected'}
             </p>
-            <button
-              onClick={handleSave}
-              disabled={saving || extractedAssignments.length === 0}
-              style={{
-                padding: '6px 14px',
-                background: extractedAssignments.length === 0 ? '#f5f5f5' : 'rgba(26,92,42,0.08)',
-                color: extractedAssignments.length === 0 ? '#9ca3af' : '#1a5c2a',
-                border: extractedAssignments.length === 0 ? '1px solid rgba(107,114,128,0.15)' : '1px solid rgba(26,92,42,0.3)',
+            {extractedAssignments.length > 0 && (
+              <span style={{
+                padding: '4px 12px',
+                background: saved ? 'rgba(26,92,42,0.08)' : 'rgba(107,114,128,0.06)',
+                color: saved ? '#1a5c2a' : '#6b7280',
+                border: saved ? '1px solid rgba(26,92,42,0.3)' : '1px solid rgba(107,114,128,0.15)',
                 borderRadius: '4px',
-                fontSize: '13px',
-                cursor: extractedAssignments.length === 0 ? 'default' : 'pointer',
-              }}
-            >
-              {saved ? 'Saved!' : saving ? 'Saving...' : 'Save to Calendar'}
-            </button>
+                fontSize: '12px',
+              }}>
+                {saved ? 'Saved to calendar' : 'Auto-saving...'}
+              </span>
+            )}
           </div>
           <AssignmentTable assignments={extractedAssignments} onChange={setExtractedAssignments} />
 

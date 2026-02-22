@@ -61,7 +61,9 @@ def extract_text_from_pdf_ocr(
 
 
 def extract_text_from_file(file_bytes: bytes, filename: str, content_type: str) -> str:
-    """Extract raw text from a PDF or image file."""
+    """Extract raw text from a PDF, plain-text, or image file."""
+    if content_type == "text/plain" or filename.lower().endswith(".txt"):
+        return _clean_text(file_bytes.decode("utf-8", errors="replace"))
     if content_type == "application/pdf" or filename.lower().endswith(".pdf"):
         try:
             text, _ = extract_text_from_pdf_native(file_bytes)

@@ -86,11 +86,13 @@ export const submitQuiz = (quizId: string, answers: any[]) =>
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
 
-export const extractSyllabus = (formData: FormData): Promise<any> =>
-  fetch(`${API_URL}/api/calendar/extract`, {
+export const extractSyllabus = (formData: FormData, userId: string): Promise<any> => {
+  formData.set('user_id', userId);
+  return fetch(`${API_URL}/api/calendar/extract`, {
     method: 'POST',
     body: formData,
   }).then(r => r.json());
+};
 
 export const getUpcomingAssignments = (userId: string) =>
   fetchJSON<{ assignments: any[] }>(`/api/calendar/upcoming/${userId}`);
