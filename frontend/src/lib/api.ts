@@ -103,12 +103,9 @@ export const saveAssignments = (userId: string, assignments: any[]) =>
     body: JSON.stringify({ user_id: userId, assignments }),
   });
 
-// Fixed: userId passed as query param so backend stores token under correct user
 export const getCalendarAuthUrl = (userId: string) =>
   fetchJSON<{ url: string }>(`/api/calendar/auth-url?user_id=${encodeURIComponent(userId)}`);
 
-// Aliased both names so either import works (current file uses checkCalendarStatus,
-// previous fixed version used getCalendarStatus)
 export const getCalendarStatus = (userId: string) =>
   fetchJSON<{ connected: boolean; expires_at?: string }>(`/api/calendar/status/${userId}`);
 export const checkCalendarStatus = getCalendarStatus;
@@ -125,13 +122,11 @@ export const exportToGoogleCalendar = (userId: string, assignmentIds: string[]) 
     body: JSON.stringify({ user_id: userId, assignment_ids: assignmentIds }),
   });
 
-// Pull upcoming Google Calendar events for the user to preview
 export const importGoogleEvents = (userId: string, daysAhead = 30) =>
   fetchJSON<{ events: any[]; count: number }>(
     `/api/calendar/import/${userId}?days_ahead=${daysAhead}`
   );
 
-// Disconnect Google Calendar (removes stored token)
 export const disconnectGoogleCalendar = (userId: string) =>
   fetchJSON<{ disconnected: boolean }>(`/api/calendar/disconnect/${userId}`, {
     method: 'DELETE',
@@ -162,6 +157,12 @@ export const getRoomActivity = (roomId: string) =>
 
 export const findStudyMatches = (roomId: string, userId: string) =>
   fetchJSON<{ matches: any[] }>(`/api/social/rooms/${roomId}/match`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+
+export const findSchoolMatches = (userId: string) =>
+  fetchJSON<{ matches: any[] }>('/api/social/school-match', {
     method: 'POST',
     body: JSON.stringify({ user_id: userId }),
   });

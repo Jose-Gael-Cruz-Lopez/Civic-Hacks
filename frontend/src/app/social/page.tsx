@@ -126,6 +126,7 @@ export default function SocialPage() {
                   matches={matches}
                   onFindMatches={handleFindMatches}
                   loading={matchLoading}
+                  userId={USER_ID}
                 />
               )}
 

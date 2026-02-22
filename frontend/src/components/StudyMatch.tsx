@@ -2,51 +2,126 @@
 
 import { useEffect, useState } from 'react';
 import { StudyMatch as StudyMatchType } from '@/lib/types';
+import { findSchoolMatches } from '@/lib/api';
 import Link from 'next/link';
+
+type Scope = 'room' | 'school';
 
 interface Props {
   matches: StudyMatchType[];
   onFindMatches: () => void;
   loading: boolean;
+  userId: string;
 }
 
-export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
+export default function StudyMatch({ matches, onFindMatches, loading, userId }: Props) {
+  const [scope, setScope] = useState<Scope>('room');
   const [showPopup, setShowPopup] = useState(false);
+  const [schoolMatches, setSchoolMatches] = useState<StudyMatchType[]>([]);
+  const [schoolLoading, setSchoolLoading] = useState(false);
 
-  const sorted = [...matches]
+  const activeMatches = scope === 'room' ? matches : schoolMatches;
+  const activeLoading = scope === 'room' ? loading : schoolLoading;
+
+  const sorted = [...activeMatches]
     .filter(m => m?.partner?.id)
     .sort((a, b) => b.compatibility_score - a.compatibility_score);
   const best = sorted[0] ?? null;
   const others = sorted.slice(1);
 
-  // Open popup automatically whenever fresh matches arrive
+  // Open popup whenever fresh matches arrive for the active scope
   useEffect(() => {
-    if (matches.length > 0) {
-      setShowPopup(true);
+    if (activeMatches.length > 0) setShowPopup(true);
+  }, [activeMatches]);
+
+  const handleFindRoom = () => {
+    setScope('room');
+    onFindMatches();
+  };
+
+  const handleFindSchool = async () => {
+    setScope('school');
+    setSchoolLoading(true);
+    try {
+      const res = await findSchoolMatches(userId);
+      setSchoolMatches(res.matches);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSchoolLoading(false);
     }
-  }, [matches]);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button
-          onClick={onFindMatches}
-          disabled={loading}
-          className="btn-accent"
-          style={{ opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
-        >
-          {loading ? 'Finding matches...' : 'Find Study Partners'}
-        </button>
+
+      {/* ── Scope toggle + action buttons ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        {/* Pill toggle */}
+        <div style={{
+          display: 'flex',
+          background: 'rgba(107,114,128,0.1)',
+          borderRadius: '8px',
+          padding: '3px',
+          gap: '2px',
+        }}>
+          {(['room', 'school'] as Scope[]).map(s => (
+            <button
+              key={s}
+              onClick={() => setScope(s)}
+              style={{
+                padding: '5px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                background: scope === s ? '#ffffff' : 'transparent',
+                color: scope === s ? '#111827' : '#6b7280',
+                boxShadow: scope === s ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              {s === 'room' ? '🏠 My Room' : '🏫 My School'}
+            </button>
+          ))}
+        </div>
+
+        {/* Action button for active scope */}
+        {scope === 'room' ? (
+          <button
+            onClick={handleFindRoom}
+            disabled={loading}
+            className="btn-accent"
+            style={{ opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+          >
+            {loading ? 'Finding matches...' : 'Find Study Partners'}
+          </button>
+        ) : (
+          <button
+            onClick={handleFindSchool}
+            disabled={schoolLoading}
+            className="btn-accent"
+            style={{ opacity: schoolLoading ? 0.6 : 1, cursor: schoolLoading ? 'not-allowed' : 'pointer' }}
+          >
+            {schoolLoading ? 'Searching school...' : 'Search School'}
+          </button>
+        )}
       </div>
 
-      {matches.length === 0 && !loading && (
-        <p style={{ color: 'var(--text-dim)', fontSize: '14px' }}>Click above to find study partners in this room.</p>
+      {/* Empty state */}
+      {activeMatches.length === 0 && !activeLoading && (
+        <p style={{ color: 'var(--text-dim)', fontSize: '14px' }}>
+          {scope === 'room'
+            ? 'Click above to find study partners in this room.'
+            : 'Click above to find study partners from across your school.'}
+        </p>
       )}
 
-      {/* Cards shown below button */}
+      {/* Match cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {sorted.map((match, i) => (
-          <MatchCard key={match.partner.id} match={match} isBest={i === 0} />
+          <MatchCard key={match.partner.id} match={match} isBest={i === 0} scope={scope} />
         ))}
       </div>
 
@@ -54,23 +129,15 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
       {showPopup && best && (
         <div
           style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.45)',
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.45)', zIndex: 200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
           }}
           onClick={e => { if (e.target === e.currentTarget) setShowPopup(false); }}
         >
           <div style={{
-            background: '#ffffff',
-            borderRadius: '14px',
-            padding: '32px 28px 24px',
-            width: '480px',
-            maxWidth: '95vw',
+            background: '#ffffff', borderRadius: '14px',
+            padding: '32px 28px 24px', width: '480px', maxWidth: '95vw',
             position: 'relative',
             border: '1px solid rgba(107,114,128,0.15)',
             boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
@@ -83,19 +150,17 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 background: 'none', border: 'none', fontSize: '18px',
                 cursor: 'pointer', color: '#9ca3af', lineHeight: 1, padding: '4px 6px', borderRadius: '4px',
               }}
-            >
-              ✕
-            </button>
+            >✕</button>
 
             {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <div style={{ fontSize: '36px', marginBottom: '8px' }}>🎯</div>
+              <div style={{ fontSize: '36px', marginBottom: '8px' }}>
+                {scope === 'school' ? '🏫' : '🎯'}
+              </div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(26,92,42,0.8)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                Your Best Study Partner
+                {scope === 'school' ? 'Best School Match' : 'Your Best Study Partner'}
               </div>
-              <div style={{ fontSize: '26px', fontWeight: 700, color: '#111827' }}>
-                {best.partner.name}
-              </div>
+              <div style={{ fontSize: '26px', fontWeight: 700, color: '#111827' }}>{best.partner.name}</div>
               <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>
                 {best.compatibility_score}/100 compatibility
               </div>
@@ -158,7 +223,6 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 </div>
               </div>
             )}
-
             {best.you_can_teach.length > 0 && (
               <div style={{ marginBottom: '10px' }}>
                 <p style={{ fontSize: '11px', fontWeight: 500, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>You can help with</p>
@@ -171,7 +235,6 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 </div>
               </div>
             )}
-
             {best.shared_struggles.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <p style={{ fontSize: '11px', fontWeight: 500, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Study together</p>
@@ -184,13 +247,12 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
                 </div>
               </div>
             )}
-            {/* Footer buttons */}
+
             <div style={{ display: 'flex', marginTop: '8px' }}>
               <button
                 onClick={() => setShowPopup(false)}
                 style={{
-                  flex: 1,
-                  padding: '10px 24px',
+                  flex: 1, padding: '10px 24px',
                   background: '#f3f4f6', color: '#374151',
                   border: '1px solid rgba(107,114,128,0.2)',
                   borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer',
@@ -206,7 +268,7 @@ export default function StudyMatch({ matches, onFindMatches, loading }: Props) {
   );
 }
 
-function MatchCard({ match, isBest }: { match: StudyMatchType; isBest: boolean }) {
+function MatchCard({ match, isBest, scope }: { match: StudyMatchType; isBest: boolean; scope: Scope }) {
   return (
     <div
       className="panel"
@@ -223,6 +285,11 @@ function MatchCard({ match, isBest }: { match: StudyMatchType; isBest: boolean }
           {isBest && (
             <span style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(26,92,42,0.85)', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(26,92,42,0.1)', padding: '2px 7px', borderRadius: '999px' }}>
               Best Match
+            </span>
+          )}
+          {scope === 'school' && (
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#6366f1', background: 'rgba(99,102,241,0.08)', padding: '2px 7px', borderRadius: '999px', border: '1px solid rgba(99,102,241,0.2)' }}>
+              🏫 School
             </span>
           )}
           <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{match.partner.name}</span>
@@ -244,7 +311,6 @@ function MatchCard({ match, isBest }: { match: StudyMatchType; isBest: boolean }
           </div>
         </div>
       )}
-
       {match.they_can_teach.length > 0 && (
         <div style={{ marginBottom: '10px' }}>
           <p style={{ fontSize: '11px', fontWeight: 500, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>They can help with</p>
@@ -257,7 +323,6 @@ function MatchCard({ match, isBest }: { match: StudyMatchType; isBest: boolean }
           </div>
         </div>
       )}
-
       {match.shared_struggles.length > 0 && (
         <div style={{ marginBottom: '10px' }}>
           <p style={{ fontSize: '11px', fontWeight: 500, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Study together</p>
