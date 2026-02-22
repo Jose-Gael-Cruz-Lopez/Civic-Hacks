@@ -471,6 +471,7 @@ useEffect(() => {
           <div style={{ textAlign: 'center', paddingTop: '14px', paddingBottom: '10px' }}>
             <h1
               style={{
+                fontFamily: "var(--font-spectral), 'Spectral', Georgia, serif",
                 fontSize: '50px',
                 fontWeight: 700,
                 color: '#111827',

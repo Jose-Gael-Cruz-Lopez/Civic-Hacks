@@ -37,6 +37,7 @@ export default function Navbar() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <img src="/sapling-icon.svg" alt="Sapling" style={{ width: '32px', height: '32px' }} />
         <span style={{
+          fontFamily: "var(--font-spectral), 'Spectral', Georgia, serif",
           fontWeight: 700,
           fontSize: '20px',
           color: '#1a5c2a',

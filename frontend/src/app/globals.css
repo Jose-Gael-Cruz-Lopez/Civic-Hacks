@@ -61,13 +61,16 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
+  font-family: var(--font-dm-sans), 'DM Sans', sans-serif;
   font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   min-height: 100vh;
+}
+
+.font-spectral {
+  font-family: var(--font-spectral), 'Spectral', Georgia, serif;
 }
 
 /* ── Selection ──────────────────────────────────────────────────── */
