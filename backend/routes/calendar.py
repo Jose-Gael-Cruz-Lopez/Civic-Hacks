@@ -1,3 +1,5 @@
+import base64
+import json
 import uuid
 from datetime import datetime
 
@@ -6,7 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_SCOPES, FRONTEND_URL
 from db.connection import get_conn
-from models import SaveAssignmentsBody, StudyBlockBody, ExportBody
+from models import SaveAssignmentsBody, StudyBlockBody, ExportBody, SyncBody
 from services.calendar_service import extract_assignments_from_file
 
 try:
@@ -19,6 +21,8 @@ except ImportError:
 
 router = APIRouter()
 
+_TOKEN_URI = "https://oauth2.googleapis.com/token"
+
 
 def _google_client_config():
     return {
@@ -27,7 +31,7 @@ def _google_client_config():
             "client_secret": GOOGLE_CLIENT_SECRET,
             "redirect_uris": [GOOGLE_REDIRECT_URI],
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
+            "token_uri": _TOKEN_URI,
         }
     }
 
@@ -94,20 +98,35 @@ def suggest_study_blocks(body: StudyBlockBody):
     return {"study_blocks": blocks[:5]}
 
 
+@router.get("/status/{user_id}")
+def get_status(user_id: str):
+    conn = get_conn()
+    row = conn.execute("SELECT user_id FROM oauth_tokens WHERE user_id = ?", (user_id,)).fetchone()
+    conn.close()
+    return {"connected": row is not None}
+
+
 @router.get("/auth-url")
-def auth_url():
+def auth_url(user_id: str = Query(...)):
     if not GOOGLE_AVAILABLE or not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Google Calendar not configured")
     flow = Flow.from_client_config(_google_client_config(), scopes=GOOGLE_SCOPES)
     flow.redirect_uri = GOOGLE_REDIRECT_URI
-    auth_url_str, _ = flow.authorization_url(prompt="consent")
+    state = base64.urlsafe_b64encode(json.dumps({"user_id": user_id}).encode()).decode()
+    auth_url_str, _ = flow.authorization_url(prompt="consent", state=state)
     return {"url": auth_url_str}
 
 
 @router.get("/callback")
-def callback(code: str = Query(...)):
+def callback(code: str = Query(...), state: str = Query(default="")):
     if not GOOGLE_AVAILABLE:
         return RedirectResponse(f"{FRONTEND_URL}/calendar?error=google_not_configured")
+    try:
+        # Pad base64 so it decodes cleanly regardless of padding chars
+        padded = state + "==" * ((4 - len(state) % 4) % 4)
+        user_id = json.loads(base64.urlsafe_b64decode(padded))["user_id"]
+    except Exception:
+        user_id = "unknown"
     flow = Flow.from_client_config(_google_client_config(), scopes=GOOGLE_SCOPES)
     flow.redirect_uri = GOOGLE_REDIRECT_URI
     flow.fetch_token(code=code)
@@ -115,12 +134,58 @@ def callback(code: str = Query(...)):
     conn = get_conn()
     conn.execute(
         "INSERT OR REPLACE INTO oauth_tokens (user_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)",
-        ("user_andres", creds.token, creds.refresh_token or "",
+        (user_id, creds.token, creds.refresh_token or "",
          creds.expiry.isoformat() if creds.expiry else ""),
     )
     conn.commit()
     conn.close()
     return RedirectResponse(f"{FRONTEND_URL}/calendar?connected=true")
+
+
+@router.post("/sync")
+def sync_to_google(body: SyncBody):
+    """Push all saved assignments that haven't been exported yet to Google Calendar."""
+    if not GOOGLE_AVAILABLE:
+        raise HTTPException(status_code=400, detail="Google Calendar libraries not installed")
+    conn = get_conn()
+    token_row = conn.execute(
+        "SELECT * FROM oauth_tokens WHERE user_id = ?", (body.user_id,)
+    ).fetchone()
+    if not token_row:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Not connected to Google Calendar")
+    creds = Credentials(
+        token=token_row["access_token"],
+        refresh_token=token_row["refresh_token"],
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        token_uri=_TOKEN_URI,
+    )
+    service = build("calendar", "v3", credentials=creds)
+    rows = conn.execute(
+        "SELECT * FROM assignments WHERE user_id = ? AND (google_event_id IS NULL OR google_event_id = '')",
+        (body.user_id,),
+    ).fetchall()
+    synced = 0
+    for row in rows:
+        a = dict(row)
+        if not a.get("due_date"):
+            continue
+        summary = f"[{a['course_name']}] {a['title']}" if a.get("course_name") else a["title"]
+        event = {
+            "summary": summary,
+            "description": a.get("notes") or "",
+            "start": {"date": a["due_date"]},
+            "end": {"date": a["due_date"]},
+        }
+        created = service.events().insert(calendarId="primary", body=event).execute()
+        conn.execute(
+            "UPDATE assignments SET google_event_id = ? WHERE id = ?", (created["id"], a["id"])
+        )
+        synced += 1
+    conn.commit()
+    conn.close()
+    return {"synced_count": synced}
 
 
 @router.post("/export")
@@ -139,7 +204,7 @@ def export_to_google(body: ExportBody):
         refresh_token=token_row["refresh_token"],
         client_id=GOOGLE_CLIENT_ID,
         client_secret=GOOGLE_CLIENT_SECRET,
-        token_uri="https://oauth2.googleapis.com/token",
+        token_uri=_TOKEN_URI,
     )
     service = build("calendar", "v3", credentials=creds)
     exported = 0

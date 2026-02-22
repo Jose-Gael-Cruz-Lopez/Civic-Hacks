@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
-import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, exportToGoogleCalendar } from '@/lib/api';
+import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, checkCalendarStatus, syncToGoogleCalendar } from '@/lib/api';
 import { useUser } from '@/context/UserContext';
 
 type CalendarView = 'month' | 'week' | 'day';
@@ -261,7 +261,6 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
 function CalendarInner() {
   const { userId: USER_ID } = useUser();
   const searchParams = useSearchParams();
-  const googleConnected = searchParams.get('connected') === 'true';
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [extractedAssignments, setExtractedAssignments] = useState<Assignment[]>([]);
@@ -269,17 +268,23 @@ function CalendarInner() {
   const [rawText, setRawText] = useState('');
   const [rawTextVisible, setRawTextVisible] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadFilename, setUploadFilename] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportedCount, setExportedCount] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncedCount, setSyncedCount] = useState<number | null>(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
     getUpcomingAssignments(USER_ID).then(data => setAssignments(data.assignments)).catch(console.error);
-  }, []);
+    // Check connection from URL param (just returned from OAuth) or by querying the backend
+    if (searchParams.get('connected') === 'true') {
+      setGoogleConnected(true);
+    } else {
+      checkCalendarStatus(USER_ID).then(res => setGoogleConnected(res.connected)).catch(() => {});
+    }
+  }, [USER_ID]);
 
   const handleFile = async (file: File) => {
     setUploadFilename(file.name);
@@ -332,29 +337,26 @@ function CalendarInner() {
 
   const handleConnectGoogle = async () => {
     try {
-      const res = await getCalendarAuthUrl();
+      const res = await getCalendarAuthUrl(USER_ID);
       window.location.href = res.url;
     } catch {
       alert('Google Calendar not configured. Add GOOGLE_CLIENT_ID to backend .env');
     }
   };
 
-  const handleExport = async () => {
-    if (!selectedIds.length) return;
-    setExporting(true);
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncedCount(null);
     try {
-      const res = await exportToGoogleCalendar(USER_ID, selectedIds);
-      setExportedCount(res.exported_count);
-      setSelectedIds([]);
+      const res = await syncToGoogleCalendar(USER_ID);
+      setSyncedCount(res.synced_count);
+      // Refresh assignments so google_event_id is up to date
+      getUpcomingAssignments(USER_ID).then(data => setAssignments(data.assignments)).catch(console.error);
     } catch (e: any) {
       alert(e.message);
     } finally {
-      setExporting(false);
+      setSyncing(false);
     }
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   return (
@@ -425,12 +427,7 @@ function CalendarInner() {
           <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
             All Assignments
           </p>
-          <AssignmentTable
-            assignments={assignments}
-            onChange={setAssignments}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelect}
-          />
+          <AssignmentTable assignments={assignments} onChange={setAssignments} />
         </div>
       )}
 
@@ -438,17 +435,17 @@ function CalendarInner() {
         {googleConnected ? (
           <>
             <span style={{ fontSize: '13px', color: '#22c55e', fontWeight: 500 }}>Connected to Google Calendar</span>
-            {selectedIds.length > 0 && (
-              <button
-                onClick={handleExport}
-                disabled={exporting}
-                style={{ padding: '6px 14px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
-              >
-                {exporting ? 'Exporting...' : `Export ${selectedIds.length} to Google`}
-              </button>
-            )}
-            {exportedCount !== null && (
-              <span style={{ fontSize: '13px', color: '#22c55e' }}>Exported {exportedCount} events</span>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              style={{ padding: '6px 14px', background: '#111827', color: '#ffffff', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: syncing ? 'default' : 'pointer' }}
+            >
+              {syncing ? 'Syncing...' : 'Sync to Google Calendar'}
+            </button>
+            {syncedCount !== null && (
+              <span style={{ fontSize: '13px', color: '#22c55e' }}>
+                {syncedCount === 0 ? 'All assignments already synced' : `Synced ${syncedCount} assignment${syncedCount !== 1 ? 's' : ''}`}
+              </span>
             )}
           </>
         ) : (
