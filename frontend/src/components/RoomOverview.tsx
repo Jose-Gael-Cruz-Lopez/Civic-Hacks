@@ -81,7 +81,7 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
                 edges={myMember.graph.edges}
                 width={440}
                 height={380}
-                interactive={false}
+                interactive={true}
                 comparison={partnerMember ? { partnerNodes: partnerMember.graph.nodes } : undefined}
               />
             ) : (
@@ -113,7 +113,7 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
                 edges={partnerMember.graph.edges}
                 width={440}
                 height={380}
-                interactive={false}
+                interactive={true}
                 comparison={myMember ? { partnerNodes: myMember.graph.nodes } : undefined}
               />
             ) : (

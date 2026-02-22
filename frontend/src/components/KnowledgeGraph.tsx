@@ -37,7 +37,6 @@ interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   strength: number;
 }
 
-type TooltipState = { x: number; y: number; node: GraphNode } | null;
 
 export default function KnowledgeGraph({
   nodes,
@@ -108,17 +107,19 @@ export default function KnowledgeGraph({
       }));
 
     const sim = d3.forceSimulation(simNodes)
-      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.04))
+      .force('x', d3.forceX(width / 2).strength(0.03))
+      .force('y', d3.forceY(height / 2).strength(0.03))
       .force(
         'link',
         d3.forceLink<SimNode, SimLink>(simLinks)
           .id(d => d.id)
-          .distance(d => 60 + (1 - d.strength) * 60)
-          .strength(d => d.strength * 0.6)
+          .distance(d => 55 + (1 - d.strength) * 40)
+          .strength(d => d.strength * 0.8)
       )
-      .force('charge', d3.forceManyBody().strength(-180))
+      .force('charge', d3.forceManyBody().strength(-120))
       .force('collide', d3.forceCollide<SimNode>(d => getSimRadius(d) + 8))
-      .alphaDecay(0.03);
+      .alphaDecay(0.04);
 
     simRef.current = sim;
 
