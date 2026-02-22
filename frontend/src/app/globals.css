@@ -210,3 +210,26 @@ input, select, textarea { color-scheme: light; }
   background: var(--bg-panel);
   border: 1px solid var(--border);
 }
+
+/* ── Dashboard side-panel scrollbars (hidden until hover) ── */
+.dash-scroll {
+  scrollbar-gutter: stable;
+}
+.dash-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.dash-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
+}
+.dash-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background 0.25s;
+}
+.dash-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(26, 92, 42, 0.22);
+}
+.dash-scroll:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 92, 42, 0.38);
+}

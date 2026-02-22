@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, memo } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphEdge } from '@/lib/types';
 import { getMasteryColor, getNodeRadius, getCourseColor } from '@/lib/graphUtils';
@@ -49,7 +49,7 @@ function masteryOpacity(tier: string): number {
   }
 }
 
-export default function KnowledgeGraph({
+function KnowledgeGraph({
   nodes,
   edges,
   width,
@@ -341,3 +341,5 @@ export default function KnowledgeGraph({
     </div>
   );
 }
+
+export default memo(KnowledgeGraph);

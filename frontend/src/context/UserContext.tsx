@@ -38,11 +38,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Fetch user list from backend
+  // Fetch user list from backend and reconcile the current user's name
   useEffect(() => {
     fetch('http://localhost:5000/api/users')
       .then(r => r.json())
-      .then((data: { users: UserOption[] }) => setUsers(data.users ?? []))
+      .then((data: { users: UserOption[] }) => {
+        const list = data.users ?? [];
+        setUsers(list);
+        // Always sync userName from the live backend list for the current userId
+        // so the greeting never shows a stale or hardcoded default name
+        setUserId(prev => {
+          const match = list.find(u => u.id === prev);
+          if (match) setUserName(match.name);
+          return prev;
+        });
+      })
       .catch(() => {});
   }, []);
 
