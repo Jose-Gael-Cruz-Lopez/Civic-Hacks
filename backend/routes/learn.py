@@ -21,6 +21,7 @@ def _load_prompt(name: str) -> str:
 
 
 PREAMBLE_TEMPLATE = _load_prompt("preamble.txt")
+SHARED_CONTEXT_TEMPLATE = _load_prompt("shared_context.txt")
 MODE_PROMPTS = {
     "socratic": _load_prompt("socratic.txt"),
     "expository": _load_prompt("expository.txt"),
@@ -28,11 +29,57 @@ MODE_PROMPTS = {
 }
 
 
-def build_system_prompt(mode: str, student_name: str, graph_json: str, last_summary: str = "") -> str:
+def _resolve_course(topic: str, user_id: str) -> str:
+    """Return the subject/course the topic belongs to, or '' if unknown."""
+    if not topic:
+        return ""
+    # Is the topic itself a subject name?
+    subject_match = table("graph_nodes").select(
+        "subject", filters={"user_id": f"eq.{user_id}", "subject": f"eq.{topic}"}, limit=1
+    )
+    if subject_match:
+        return topic
+    # Is the topic a concept name? Get its subject.
+    concept_match = table("graph_nodes").select(
+        "subject", filters={"user_id": f"eq.{user_id}", "concept_name": f"eq.{topic}"}, limit=1
+    )
+    if concept_match:
+        return concept_match[0].get("subject") or ""
+    return ""
+
+
+def _get_session_topic(session_id: str) -> str:
+    rows = table("sessions").select("topic", filters={"id": f"eq.{session_id}"}, limit=1)
+    return rows[0]["topic"] if rows else ""
+
+
+def build_system_prompt(
+    mode: str,
+    student_name: str,
+    graph_json: str,
+    last_summary: str = "",
+    course_name: str = "",
+) -> str:
+    from services.course_context_service import get_course_context
+
     preamble = PREAMBLE_TEMPLATE.replace("{student_name}", student_name)
     preamble = preamble.replace("{graph_json}", graph_json)
     preamble = preamble.replace("{last_session_summary}", last_summary or "None")
-    return preamble + "\n\n" + MODE_PROMPTS.get(mode, MODE_PROMPTS["socratic"])
+
+    parts = [preamble]
+
+    if course_name:
+        ctx = get_course_context(course_name)
+        if ctx:
+            shared_block = (
+                SHARED_CONTEXT_TEMPLATE
+                .replace("{course_name}", course_name)
+                .replace("{shared_context_json}", json.dumps(ctx, indent=2))
+            )
+            parts.append(shared_block)
+
+    parts.append(MODE_PROMPTS.get(mode, MODE_PROMPTS["socratic"]))
+    return "\n\n".join(parts)
 
 
 def get_conversation_history(session_id: str) -> list:
@@ -80,7 +127,8 @@ def start_session(body: StartSessionBody):
 
     student_name = get_user_name(body.user_id)
     graph_data = get_graph(body.user_id)
-    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2))
+    course_name = _resolve_course(body.topic, body.user_id)
+    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2), course_name=course_name)
     full_prompt = (
         f"{system_prompt}\n\n"
         f"Student wants to learn about: {body.topic}\n\n"
@@ -111,7 +159,9 @@ def chat(body: ChatBody):
     graph_data = get_graph(body.user_id)
     history = get_conversation_history(body.session_id)
     history_text = format_history_for_prompt(history[:-1])
-    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2))
+    topic = _get_session_topic(body.session_id)
+    course_name = _resolve_course(topic, body.user_id)
+    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2), course_name=course_name)
 
     full_prompt = (
         f"{system_prompt}\n\n"
@@ -242,7 +292,9 @@ def action(body: ActionBody):
     graph_data = get_graph(body.user_id)
     history = get_conversation_history(body.session_id)
     history_text = format_history_for_prompt(history)
-    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2))
+    topic = _get_session_topic(body.session_id)
+    course_name = _resolve_course(topic, body.user_id)
+    system_prompt = build_system_prompt(body.mode, student_name, json.dumps(graph_data, indent=2), course_name=course_name)
 
     full_prompt = (
         f"{system_prompt}\n\n"

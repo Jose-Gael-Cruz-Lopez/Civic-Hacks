@@ -147,3 +147,11 @@ CREATE TABLE IF NOT EXISTS room_summaries (
     member_hash TEXT NOT NULL,
     updated_at  TIMESTAMPTZ DEFAULT now()
 );
+
+-- Shared course-level learning context (aggregated from all students, no Gemini)
+CREATE TABLE IF NOT EXISTS course_context (
+    course_name   TEXT PRIMARY KEY,
+    context_json  JSONB NOT NULL,
+    student_count INTEGER DEFAULT 0,
+    updated_at    TIMESTAMPTZ DEFAULT now()
+);

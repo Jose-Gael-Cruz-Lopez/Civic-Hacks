@@ -165,6 +165,7 @@ def delete_course(user_id: str, course_name: str) -> dict:
 def apply_graph_update(user_id: str, graph_update: dict) -> list:
     """Apply a graph_update dict to the DB. Returns mastery_changes list."""
     mastery_changes = []
+    touched_subjects: set = set()
 
     for new_node in graph_update.get("new_nodes", []):
         name = new_node.get("concept_name", "")
@@ -183,12 +184,14 @@ def apply_graph_update(user_id: str, graph_update: dict) -> list:
                 "mastery_tier": get_mastery_tier(init_m),
                 "subject": subject,
             })
+        if subject and subject != "General":
+            touched_subjects.add(subject)
 
     for upd in graph_update.get("updated_nodes", []):
         name = upd.get("concept_name", "")
         delta = float(upd.get("mastery_delta", 0.0))
         rows = table("graph_nodes").select(
-            "id,mastery_score,times_studied",
+            "id,mastery_score,times_studied,subject",
             filters={"user_id": f"eq.{user_id}", "concept_name": f"eq.{name}"},
         )
         if rows:
@@ -205,6 +208,9 @@ def apply_graph_update(user_id: str, graph_update: dict) -> list:
                 filters={"id": f"eq.{row['id']}"},
             )
             mastery_changes.append({"concept": name, "before": before, "after": after})
+            subj = row.get("subject", "")
+            if subj and subj != "General":
+                touched_subjects.add(subj)
 
     for new_edge in graph_update.get("new_edges", []):
         src_name = new_edge.get("source", "")
@@ -235,6 +241,15 @@ def apply_graph_update(user_id: str, graph_update: dict) -> list:
                     "target_node_id": tgt_id,
                     "strength": strength,
                 })
+
+    # Refresh shared course context for every subject touched in this update
+    if touched_subjects:
+        from services.course_context_service import update_course_context
+        for subj in touched_subjects:
+            try:
+                update_course_context(subj)
+            except Exception:
+                pass  # never block the main response for a context refresh
 
     return mastery_changes
 

@@ -43,6 +43,29 @@ def generate_quiz(body: GenerateQuizBody):
         .replace("{quiz_context_json}", quiz_ctx_str)
     )
 
+    # Append shared course-level context (misconceptions + weak areas) if available
+    subject = node.get("subject", "")
+    if subject:
+        from services.course_context_service import get_course_context
+        course_ctx = get_course_context(subject)
+        if course_ctx:
+            misconceptions = course_ctx.get("common_misconceptions", [])
+            weak_areas = course_ctx.get("weak_areas", [])
+            if misconceptions or weak_areas:
+                addendum_parts = []
+                if misconceptions:
+                    addendum_parts.append(
+                        "Common misconceptions seen across the class for this subject "
+                        "(address these proactively in distractors and explanations):\n"
+                        + "\n".join(f"- {m}" for m in misconceptions[:10])
+                    )
+                if weak_areas:
+                    addendum_parts.append(
+                        "Weak areas to target:\n"
+                        + "\n".join(f"- {w}" for w in weak_areas[:10])
+                    )
+                prompt += "\n\n" + "\n\n".join(addendum_parts)
+
     try:
         result = call_gemini_json(prompt)
     except Exception as e:
