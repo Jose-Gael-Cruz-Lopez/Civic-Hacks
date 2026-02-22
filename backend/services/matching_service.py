@@ -58,12 +58,10 @@ def find_study_matches(
         you_can_teach = []
         they_can_teach = []
         shared_struggles = []
-        complementarity = 0.0
 
         for concept in common_concepts:
             my_m = normalize(my_nodes[concept].get("mastery_score", 0))
             their_m = normalize(their_nodes[concept].get("mastery_score", 0))
-            gap = abs(my_m - their_m)
 
             if my_m > 0.70 and their_m < 0.50:
                 you_can_teach.append({
@@ -71,14 +69,12 @@ def find_study_matches(
                     "your_mastery": round(my_m, 2),
                     "their_mastery": round(their_m, 2),
                 })
-                complementarity += gap * 100
             elif their_m > 0.70 and my_m < 0.50:
                 they_can_teach.append({
                     "concept": concept,
                     "their_mastery": round(their_m, 2),
                     "your_mastery": round(my_m, 2),
                 })
-                complementarity += gap * 100
             elif my_m < 0.50 and their_m < 0.50:
                 shared_struggles.append({
                     "concept": concept,
@@ -90,8 +86,32 @@ def find_study_matches(
         you_can_teach.sort(key=lambda t: t["your_mastery"] - t["their_mastery"], reverse=True)
         they_can_teach.sort(key=lambda t: t["their_mastery"] - t["your_mastery"], reverse=True)
 
-        subject_score = len(shared_subjects) * 20
-        total_score = min(100, round(subject_score + complementarity))
+        # ── Subject overlap: Jaccard ratio (0–1) ──────────────────────────
+        all_subjects = my_subjects | their_subjects
+        subject_pct = len(shared_subjects) / len(all_subjects) if all_subjects else 0.0
+
+        # ── Complementarity: power-scaled teaching effectiveness ──────────
+        # Uses gap^0.7 per pair so moderate gaps still count meaningfully,
+        # normalized by n^0.7 so more concepts don't unfairly dilute the score.
+        n = len(common_concepts)
+        teaching_pairs = you_can_teach + they_can_teach
+        if n > 0 and teaching_pairs:
+            effective_teach = sum(
+                abs(t["your_mastery"] - t["their_mastery"]) ** 0.7
+                for t in teaching_pairs
+            )
+            complementarity_component = min(1.0, effective_teach / (n ** 0.7))
+        else:
+            complementarity_component = 0.0
+
+        # Struggle bonus: shared weak areas are worth studying together
+        struggle_bonus = min(0.20, len(shared_struggles) / n * 0.35) if n > 0 else 0.0
+
+        complementarity_pct = min(1.0, complementarity_component + struggle_bonus)
+
+        # ── Final: 30% subject relevance + 70% complementarity ───────────
+        raw = subject_pct * 30 + complementarity_pct * 70
+        total_score = max(18, min(92, round(raw * 1.3)))
 
         # Build summary
         teach_lines = []

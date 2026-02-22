@@ -75,6 +75,7 @@ export default function SocialPage() {
     background: 'none',
     border: 'none',
     fontSize: '14px',
+    fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
     color: tab === t ? '#111827' : '#6b7280',
     fontWeight: tab === t ? 500 : 400 as const,
     borderBottom: tab === t ? '2px solid rgba(26,92,42,0.7)' : '2px solid transparent',

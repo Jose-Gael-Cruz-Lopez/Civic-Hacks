@@ -74,6 +74,7 @@ export default function StudyMatch({ matches, onFindMatches, loading, userId }: 
                 borderRadius: '6px',
                 border: 'none',
                 fontSize: '13px',
+                fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
                 fontWeight: 500,
                 cursor: 'pointer',
                 background: scope === s ? '#ffffff' : 'transparent',
@@ -82,7 +83,7 @@ export default function StudyMatch({ matches, onFindMatches, loading, userId }: 
                 transition: 'all 0.15s',
               }}
             >
-              {s === 'room' ? '🏠 My Room' : '🏫 My School'}
+              {s === 'room' ? 'My Room' : 'My School'}
             </button>
           ))}
         </div>
@@ -154,9 +155,6 @@ export default function StudyMatch({ matches, onFindMatches, loading, userId }: 
 
             {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-              <div style={{ fontSize: '36px', marginBottom: '8px' }}>
-                {scope === 'school' ? '🏫' : '🎯'}
-              </div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(26,92,42,0.8)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
                 {scope === 'school' ? 'Best School Match' : 'Your Best Study Partner'}
               </div>
@@ -289,7 +287,7 @@ function MatchCard({ match, isBest, scope }: { match: StudyMatchType; isBest: bo
           )}
           {scope === 'school' && (
             <span style={{ fontSize: '10px', fontWeight: 600, color: '#6366f1', background: 'rgba(99,102,241,0.08)', padding: '2px 7px', borderRadius: '999px', border: '1px solid rgba(99,102,241,0.2)' }}>
-              🏫 School
+              School
             </span>
           )}
           <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{match.partner.name}</span>
