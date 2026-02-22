@@ -6,8 +6,8 @@ import KnowledgeGraph from '@/components/KnowledgeGraph';
 import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
 import { GraphNode, GraphStats, Recommendation, Assignment } from '@/lib/types';
-import { getGraph, getRecommendations, getUpcomingAssignments, extractSyllabus, saveAssignments } from '@/lib/api';
-import { getMasteryColor, getMasteryLabel, formatDueDate, formatRelativeTime, getCourseColor } from '@/lib/graphUtils';
+import { getGraph, getRecommendations, getUpcomingAssignments, extractSyllabus, saveAssignments, getCourses, addCourse, deleteCourse, updateCourseColor } from '@/lib/api';
+import { getMasteryColor, getMasteryLabel, formatDueDate, formatRelativeTime, getCourseColor, PRESET_COURSE_COLORS } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
 import Link from 'next/link';
 
@@ -51,7 +51,7 @@ function getTimeGreeting(): string {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { userId, userName } = useUser();
+  const { userId, userName, userReady } = useUser();
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 600, height: 400 });
 
@@ -67,11 +67,7 @@ export default function Dashboard() {
   const [displayedGreeting, setDisplayedGreeting] = useState('');
   const [greetingDone, setGreetingDone] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
-  const [quote, setQuote] = useState(QUOTES[0]);
-
-useEffect(() => {
-  setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
-}, []);
+  const [quote, setQuote] = useState('');
   // Collapsed courses state (set of subject names that are collapsed)
   const [collapsedCourses, setCollapsedCourses] = useState<Set<string>>(new Set());
 
@@ -83,6 +79,18 @@ useEffect(() => {
       return next;
     });
   };
+
+  // Courses panel state
+  const [showCourses, setShowCourses] = useState(false);
+  const [courseList, setCourseList] = useState<{ id: string; course_name: string; color: string | null; node_count: number }[]>([]);
+  const [courseColorMap, setCourseColorMap] = useState<Record<string, string>>({});
+  const [newCourseName, setNewCourseName] = useState('');
+  const [courseAdding, setCourseAdding] = useState(false);
+  const [courseDeleting, setCourseDeleting] = useState<string | null>(null);
+  const [courseError, setCourseError] = useState('');
+  // Inline color picker state
+  const [editingColorFor, setEditingColorFor] = useState<string | null>(null);
+  const [colorHexInput, setColorHexInput] = useState('');
 
   // Upload panel state
   const [showUpload, setShowUpload] = useState(false);
@@ -160,18 +168,24 @@ useEffect(() => {
   }, [nodes, edges]);
 
   useEffect(() => {
+    if (!userReady) return; // wait until localStorage user is resolved
     async function load() {
       try {
-        const [graphData, recData, assignData] = await Promise.all([
+        const [graphData, recData, assignData, courseData] = await Promise.all([
           getGraph(userId),
           getRecommendations(userId),
           getUpcomingAssignments(userId),
+          getCourses(userId),
         ]);
         setNodes(graphData.nodes);
         setEdges(graphData.edges);
         setStats(graphData.stats);
         setRecommendations(recData.recommendations.slice(0, 3));
-        setAllAssignments(assignData.assignments); // keep all for per-course breakdown
+        setAllAssignments(assignData.assignments);
+        setCourseList(courseData.courses);
+        const colorMap: Record<string, string> = {};
+        courseData.courses.forEach(c => { if (c.color) colorMap[c.course_name] = c.color; });
+        setCourseColorMap(colorMap);
       } catch (e) {
         console.error(e);
       } finally {
@@ -179,7 +193,12 @@ useEffect(() => {
       }
     }
     load();
-  }, [userId]);
+  }, [userId, userReady]);
+
+  // Pick a random quote on the client only (avoids SSR/client hydration mismatch)
+  useEffect(() => {
+    setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
+  }, []);
 
   // Typing animation for greeting
   useEffect(() => {
@@ -288,6 +307,65 @@ useEffect(() => {
     setRawTextVisible(false);
   };
 
+  const handleAddCourse = async () => {
+    const name = newCourseName.trim();
+    if (!name) return;
+    setCourseError('');
+    setCourseAdding(true);
+    try {
+      // Pick a preset color not already used by any existing course
+      const usedColors = new Set(Object.values(courseColorMap));
+      const pickedColor = PRESET_COURSE_COLORS.find(c => !usedColors.has(c)) ?? PRESET_COURSE_COLORS[0];
+      const res = await addCourse(userId, name, pickedColor);
+      if (res.already_existed) {
+        setCourseError(`"${name}" is already in your course list.`);
+      } else {
+        setNewCourseName('');
+        const updated = await getCourses(userId);
+        setCourseList(updated.courses);
+        const colorMap: Record<string, string> = {};
+        updated.courses.forEach(c => { if (c.color) colorMap[c.course_name] = c.color; });
+        setCourseColorMap(colorMap);
+        // Refresh graph so the new subject-root node appears immediately
+        const graphData = await getGraph(userId);
+        setNodes(graphData.nodes);
+        setEdges(graphData.edges);
+      }
+    } catch (e: any) {
+      setCourseError(e.message || 'Failed to add course.');
+    } finally {
+      setCourseAdding(false);
+    }
+  };
+
+  const handleColorChange = async (courseName: string, newHex: string) => {
+    if (!/^#[0-9a-fA-F]{6}$/.test(newHex)) return;
+    try {
+      await updateCourseColor(userId, courseName, newHex);
+      setCourseList(prev => prev.map(c => c.course_name === courseName ? { ...c, color: newHex } : c));
+      setCourseColorMap(prev => ({ ...prev, [courseName]: newHex }));
+      setEditingColorFor(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDeleteCourse = async (courseName: string) => {
+    setCourseDeleting(courseName);
+    try {
+      await deleteCourse(userId, courseName);
+      setCourseList(prev => prev.filter(c => c.course_name !== courseName));
+      // Refresh graph so the removed subject-root node disappears
+      const graphData = await getGraph(userId);
+      setNodes(graphData.nodes);
+      setEdges(graphData.edges);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCourseDeleting(null);
+    }
+  };
+
   return (
     <>
       <div style={{ display: 'flex', height: 'calc(100vh - 48px)' }}>
@@ -323,7 +401,7 @@ useEffect(() => {
             <div style={{ fontSize: '13px', color: '#9ca3af', paddingTop: '8px' }}>No courses yet</div>
           ) : (
             courses.map(({ subject, avgMastery }) => {
-              const c = getCourseColor(subject);
+              const c = getCourseColor(subject, courseColorMap[subject]);
               const pct = Math.round(avgMastery * 100);
 
               // 5 soonest upcoming assignments for this course (case-insensitive match)
@@ -545,6 +623,23 @@ useEffect(() => {
               >
                 Upload Assignments
               </button>
+              <button
+                onClick={() => setShowCourses(true)}
+                style={{
+                  padding: '8px 22px',
+                  background: '#ffffff',
+                  color: '#374151',
+                  border: '1px solid rgba(107,114,128,0.28)',
+                  borderRadius: '7px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: UI_FONT,
+                  letterSpacing: '0.5px',
+                }}
+              >
+                Courses
+              </button>
             </div>
           </div>
 
@@ -570,6 +665,7 @@ useEffect(() => {
                 height={graphDimensions.height}
                 interactive
                 onNodeClick={handleNodeClick}
+                courseColorMap={courseColorMap}
               />
             )}
           </div>
@@ -589,7 +685,7 @@ useEffect(() => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {allAssignments.slice(0, 4).map(a => {
-                  const c = getCourseColor(a.course_name);
+                  const c = getCourseColor(a.course_name, courseColorMap[a.course_name]);
                   return (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
                       <span style={{ fontSize: '12px', color: '#6b7280', minWidth: '50px' }}>
@@ -914,6 +1010,216 @@ useEffect(() => {
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ── Courses Modal ───────────────────────────────────────────────────── */}
+      {showCourses && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowCourses(false); setCourseError(''); setNewCourseName(''); setEditingColorFor(null); } }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              padding: '28px',
+              width: '480px',
+              maxWidth: '95vw',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              position: 'relative',
+              border: '1px solid rgba(107,114,128,0.15)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+              fontFamily: UI_FONT,
+            }}
+          >
+            {/* Close */}
+            <button
+              onClick={() => { setShowCourses(false); setCourseError(''); setNewCourseName(''); setEditingColorFor(null); }}
+              style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#6b7280', lineHeight: 1, padding: '4px 6px', borderRadius: '4px' }}
+            >
+              ✕
+            </button>
+
+            <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>
+              My Courses
+            </h2>
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 20px' }}>
+              Courses appear as large hub nodes on your knowledge tree. Deleting a course removes all its concept nodes.
+            </p>
+
+            {/* Course list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+              {courseList.length === 0 ? (
+                <p style={{ fontSize: '13px', color: '#9ca3af', padding: '12px 0' }}>No courses added yet.</p>
+              ) : (
+                courseList.map(c => {
+                  const color = getCourseColor(c.course_name, c.color);
+                  const isDeleting = courseDeleting === c.course_name;
+                  const isEditingColor = editingColorFor === c.course_name;
+                  return (
+                    <div key={c.id} style={{ borderRadius: '8px', background: color.bg, border: `1px solid ${color.border}`, overflow: 'hidden' }}>
+                      {/* Main row */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 13px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {/* Color swatch — click to open picker */}
+                          <button
+                            onClick={() => {
+                              setEditingColorFor(isEditingColor ? null : c.course_name);
+                              setColorHexInput(c.color ?? color.fill);
+                            }}
+                            title="Change color"
+                            style={{
+                              width: '16px', height: '16px', borderRadius: '50%',
+                              background: color.fill, border: '2px solid rgba(0,0,0,0.15)',
+                              cursor: 'pointer', flexShrink: 0, padding: 0,
+                              boxShadow: isEditingColor ? '0 0 0 2px #111' : 'none',
+                            }}
+                          />
+                          <div>
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: color.text }}>{c.course_name}</span>
+                            <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px' }}>
+                              {c.node_count === 0 ? 'no concepts yet' : `${c.node_count} concept${c.node_count !== 1 ? 's' : ''}`}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteCourse(c.course_name)}
+                          disabled={isDeleting}
+                          title="Remove course"
+                          style={{
+                            background: 'none', border: '1px solid rgba(220,38,38,0.25)', borderRadius: '5px',
+                            color: isDeleting ? '#9ca3af' : '#b91c1c', fontSize: '12px',
+                            cursor: isDeleting ? 'default' : 'pointer', padding: '3px 9px',
+                            fontFamily: 'inherit', opacity: isDeleting ? 0.5 : 1,
+                          }}
+                        >
+                          {isDeleting ? '…' : 'Delete'}
+                        </button>
+                      </div>
+
+                      {/* Inline color picker (animated via maxHeight) */}
+                      <div style={{
+                        overflow: 'hidden',
+                        maxHeight: isEditingColor ? '120px' : '0px',
+                        transition: 'max-height 0.25s ease',
+                      }}>
+                        <div style={{ padding: '0 13px 12px', borderTop: `1px solid ${color.border}` }}>
+                          {/* Preset swatches */}
+                          <p style={{ fontSize: '10px', color: '#6b7280', marginTop: '10px', marginBottom: '7px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Preset colours
+                          </p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                            {PRESET_COURSE_COLORS.map(hex => (
+                              <button
+                                key={hex}
+                                onClick={() => handleColorChange(c.course_name, hex)}
+                                style={{
+                                  width: '20px', height: '20px', borderRadius: '50%', background: hex,
+                                  border: (c.color ?? '') === hex ? '2.5px solid #111827' : '2px solid rgba(0,0,0,0.1)',
+                                  cursor: 'pointer', padding: 0,
+                                  boxShadow: (c.color ?? '') === hex ? '0 0 0 1px #fff inset' : 'none',
+                                }}
+                              />
+                            ))}
+                          </div>
+                          {/* Hex input */}
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <div style={{
+                              width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0,
+                              background: /^#[0-9a-fA-F]{6}$/.test(colorHexInput) ? colorHexInput : '#e5e7eb',
+                              border: '1px solid rgba(0,0,0,0.15)',
+                            }} />
+                            <input
+                              value={colorHexInput}
+                              onChange={e => setColorHexInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handleColorChange(c.course_name, colorHexInput); }}
+                              placeholder="#2563eb"
+                              style={{
+                                flex: 1, padding: '4px 8px', border: '1px solid rgba(107,114,128,0.25)',
+                                borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace',
+                                outline: 'none', color: '#111827',
+                              }}
+                            />
+                            <button
+                              onClick={() => handleColorChange(c.course_name, colorHexInput)}
+                              disabled={!/^#[0-9a-fA-F]{6}$/.test(colorHexInput)}
+                              style={{
+                                padding: '4px 10px', background: /^#[0-9a-fA-F]{6}$/.test(colorHexInput) ? '#1a5c2a' : '#f3f4f6',
+                                color: /^#[0-9a-fA-F]{6}$/.test(colorHexInput) ? '#fff' : '#9ca3af',
+                                border: 'none', borderRadius: '4px', fontSize: '12px',
+                                cursor: /^#[0-9a-fA-F]{6}$/.test(colorHexInput) ? 'pointer' : 'default',
+                                fontFamily: 'inherit', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: '1px solid rgba(107,114,128,0.12)', marginBottom: '16px' }} />
+
+            {/* Add new course */}
+            <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+              Add a Course
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                value={newCourseName}
+                onChange={e => { setNewCourseName(e.target.value); setCourseError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddCourse(); }}
+                placeholder="e.g. Calculus II, World History…"
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  border: '1px solid rgba(107,114,128,0.25)',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  color: '#111827',
+                }}
+              />
+              <button
+                onClick={handleAddCourse}
+                disabled={courseAdding || !newCourseName.trim()}
+                style={{
+                  padding: '8px 18px',
+                  background: courseAdding || !newCourseName.trim() ? '#f3f4f6' : '#1a5c2a',
+                  color: courseAdding || !newCourseName.trim() ? '#9ca3af' : '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: courseAdding || !newCourseName.trim() ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'background 0.15s',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {courseAdding ? 'Adding…' : 'Add Course'}
+              </button>
+            </div>
+            {courseError && (
+              <p style={{ fontSize: '12px', color: '#b91c1c', marginTop: '6px' }}>{courseError}</p>
             )}
           </div>
         </div>

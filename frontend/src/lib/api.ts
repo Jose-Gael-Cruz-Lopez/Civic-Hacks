@@ -25,6 +25,29 @@ export const getGraph = (userId: string) =>
 export const getRecommendations = (userId: string) =>
   fetchJSON<{ recommendations: any[] }>(`/api/graph/${userId}/recommendations`);
 
+export const getCourses = (userId: string) =>
+  fetchJSON<{ courses: { id: string; course_name: string; color: string | null; node_count: number; created_at: string }[] }>(
+    `/api/graph/${userId}/courses`
+  );
+
+export const addCourse = (userId: string, courseName: string, color?: string) =>
+  fetchJSON<{ course_name: string; already_existed: boolean }>(`/api/graph/${userId}/courses`, {
+    method: 'POST',
+    body: JSON.stringify({ course_name: courseName, ...(color ? { color } : {}) }),
+  });
+
+export const updateCourseColor = (userId: string, courseName: string, color: string) =>
+  fetchJSON<{ updated: boolean }>(
+    `/api/graph/${userId}/courses/${encodeURIComponent(courseName)}/color`,
+    { method: 'PATCH', body: JSON.stringify({ color }) }
+  );
+
+export const deleteCourse = (userId: string, courseName: string) =>
+  fetchJSON<{ deleted: boolean }>(
+    `/api/graph/${userId}/courses/${encodeURIComponent(courseName)}`,
+    { method: 'DELETE' }
+  );
+
 // ── Learn ─────────────────────────────────────────────────────────────────────
 
 export const startSession = (userId: string, topic: string, mode: string) =>

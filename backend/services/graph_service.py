@@ -41,6 +41,17 @@ def get_graph(user_id: str) -> dict:
 
     user = conn.execute("SELECT streak_count FROM users WHERE id = ?", (user_id,)).fetchone()
     streak = user["streak_count"] if user else 0
+
+    # Collect user-defined courses — so courses with no concept nodes still
+    # appear as a large subject-root hub in the graph.
+    try:
+        course_rows = conn.execute(
+            "SELECT course_name FROM courses WHERE user_id = ?", (user_id,)
+        ).fetchall()
+        user_course_names = {r["course_name"] for r in course_rows}
+    except Exception:
+        user_course_names = set()
+
     conn.close()
 
     stats = {
@@ -82,7 +93,110 @@ def get_graph(user_id: str) -> dict:
                 "strength": 0.7,
             })
 
+    # Add placeholder subject roots for user-defined courses that have no
+    # concept nodes yet — they show up as a large coloured hub in the graph.
+    for course_name in user_course_names:
+        if course_name not in subject_map:
+            subject_nodes.append({
+                "id": f"subject_root__{course_name}",
+                "user_id": user_id,
+                "concept_name": course_name,
+                "mastery_score": 0.0,
+                "mastery_tier": "subject_root",
+                "subject": course_name,
+                "times_studied": 0,
+                "last_studied_at": None,
+                "is_subject_root": True,
+            })
+
     return {"nodes": nodes + subject_nodes, "edges": edges + subject_edges, "stats": stats}
+
+
+# ── Course management ─────────────────────────────────────────────────────────
+
+def get_courses(user_id: str) -> list:
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT id, course_name, color, created_at FROM courses WHERE user_id = ? ORDER BY created_at ASC",
+            (user_id,),
+        ).fetchall()
+    except Exception:
+        conn.close()
+        return []
+    result = []
+    for r in rows:
+        node_count = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM graph_nodes WHERE user_id = ? AND subject = ?",
+            (user_id, r["course_name"]),
+        ).fetchone()["cnt"]
+        result.append({
+            "id": r["id"],
+            "course_name": r["course_name"],
+            "color": r["color"],
+            "node_count": node_count,
+            "created_at": r["created_at"],
+        })
+    conn.close()
+    return result
+
+
+def add_course(user_id: str, course_name: str, color: str | None = None) -> dict:
+    conn = get_conn()
+    existing = conn.execute(
+        "SELECT id FROM courses WHERE user_id = ? AND course_name = ?",
+        (user_id, course_name),
+    ).fetchone()
+    if existing:
+        conn.close()
+        return {"course_name": course_name, "already_existed": True}
+    course_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO courses (id, user_id, course_name, color) VALUES (?, ?, ?, ?)",
+        (course_id, user_id, course_name, color),
+    )
+    conn.commit()
+    conn.close()
+    return {"course_name": course_name, "already_existed": False}
+
+
+def update_course_color(user_id: str, course_name: str, color: str) -> dict:
+    conn = get_conn()
+    conn.execute(
+        "UPDATE courses SET color = ? WHERE user_id = ? AND course_name = ?",
+        (color, user_id, course_name),
+    )
+    conn.commit()
+    conn.close()
+    return {"updated": True}
+
+
+def delete_course(user_id: str, course_name: str) -> dict:
+    conn = get_conn()
+    # Remove all concept nodes for this subject and their edges / quiz context
+    node_rows = conn.execute(
+        "SELECT id FROM graph_nodes WHERE user_id = ? AND subject = ?",
+        (user_id, course_name),
+    ).fetchall()
+    for n in node_rows:
+        conn.execute(
+            "DELETE FROM quiz_context WHERE concept_node_id = ?", (n["id"],)
+        )
+        conn.execute(
+            "DELETE FROM graph_edges WHERE source_node_id = ? OR target_node_id = ?",
+            (n["id"], n["id"]),
+        )
+    conn.execute(
+        "DELETE FROM graph_nodes WHERE user_id = ? AND subject = ?",
+        (user_id, course_name),
+    )
+    conn.execute(
+        "DELETE FROM courses WHERE user_id = ? AND course_name = ?",
+        (user_id, course_name),
+    )
+    conn.commit()
+    conn.close()
+    return {"deleted": True}
 
 
 def apply_graph_update(user_id: str, graph_update: dict) -> list:

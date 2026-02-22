@@ -17,7 +17,7 @@ const GLASS = {
 
 export default function TreePage() {
   const router = useRouter();
-  const { userId } = useUser();
+  const { userId, userReady } = useUser();
   const [allNodes, setAllNodes] = useState<GraphNode[]>([]);
   const [allEdges, setAllEdges] = useState<GraphEdge[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -27,11 +27,12 @@ export default function TreePage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!userReady) return;
     getGraph(userId).then(data => {
       setAllNodes(data.nodes);
       setAllEdges(data.edges);
     }).catch(console.error);
-  }, []);
+  }, [userId, userReady]);
 
   useEffect(() => {
     setDimensions({ width: window.innerWidth, height: window.innerHeight - 48 });

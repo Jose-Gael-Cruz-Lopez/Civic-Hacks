@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 
 interface UserOption {
   id: string;
@@ -11,6 +11,9 @@ interface UserContextValue {
   userId: string;
   userName: string;
   users: UserOption[];
+  /** True once localStorage has been read — gates all data fetches so they
+   *  never fire with the hardcoded default user before we know the real one. */
+  userReady: boolean;
   setActiveUser: (id: string, name: string) => void;
 }
 
@@ -18,6 +21,7 @@ const UserContext = createContext<UserContextValue>({
   userId: 'user_andres',
   userName: 'Andres Lopez',
   users: [],
+  userReady: false,
   setActiveUser: () => {},
 });
 
@@ -25,6 +29,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [userId, setUserId] = useState('user_andres');
   const [userName, setUserName] = useState('Andres Lopez');
   const [users, setUsers] = useState<UserOption[]>([]);
+  // Becomes true after localStorage is read — prevents pages from fetching
+  // data with the hardcoded default before the real saved user is known.
+  const [userReady, setUserReady] = useState(false);
 
   // Restore last selected user from localStorage
   useEffect(() => {
@@ -36,6 +43,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setUserName(name);
       } catch {}
     }
+    setUserReady(true);
   }, []);
 
   // Fetch user list from backend and reconcile the current user's name
@@ -62,8 +70,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('sapling_user', JSON.stringify({ id, name }));
   };
 
+  const value = useMemo(
+    () => ({ userId, userName, users, userReady, setActiveUser }),
+    [userId, userName, users, userReady]
+  );
+
   return (
-    <UserContext.Provider value={{ userId, userName, users, setActiveUser }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );

@@ -15,7 +15,7 @@ import { useUser } from '@/context/UserContext';
 import CustomSelect from '@/components/CustomSelect';
 
 function LearnInner() {
-  const { userId: USER_ID } = useUser();
+  const { userId: USER_ID, userReady } = useUser();
   const searchParams = useSearchParams();
   const router = useRouter();
   const topicParam = searchParams.get('topic') ?? '';
@@ -43,14 +43,15 @@ function LearnInner() {
 
   const courses = [...new Set(nodes.map(n => n.subject).filter(Boolean))].sort();
 
-  // Load initial graph + recent sessions
+  // Load initial graph + recent sessions — re-runs when the active user changes
   useEffect(() => {
+    if (!userReady) return;
     getGraph(USER_ID).then(data => {
       setNodes(data.nodes);
       setEdges(data.edges);
     }).catch(console.error);
     getSessions(USER_ID, 10).then(data => setRecentSessions(data.sessions)).catch(console.error);
-  }, []);
+  }, [USER_ID, userReady]);
 
   useEffect(() => {
     const el = graphContainerRef.current;

@@ -55,7 +55,19 @@ function AssignmentChip({ a }: { a: Assignment }) {
 
 function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
   const [view, setView] = useState<CalendarView>('month');
-  const [current, setCurrent] = useState(() => new Date());
+  // Initialize to null so server and client agree on the first render,
+  // then set to the real Date on the client after mount (avoids hydration mismatch).
+  const [current, setCurrent] = useState<Date | null>(null);
+  const [today, setToday] = useState('');
+
+  useEffect(() => {
+    const now = new Date();
+    setCurrent(now);
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    setToday(`${y}-${m}-${day}`);
+  }, []);
 
   const toISO = (d: Date) => {
     const y = d.getFullYear();
@@ -64,7 +76,12 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
     return `${y}-${m}-${day}`;
   };
 
-  const today = toISO(new Date());
+  // Don't render until the client has set the real date
+  if (!current) {
+    return (
+      <div style={{ border: '1px solid rgba(107,114,128,0.15)', borderRadius: '10px', minHeight: '600px', background: '#f0f5f0' }} />
+    );
+  }
 
   const byDate: Record<string, Assignment[]> = {};
   for (const a of assignments) {
@@ -75,11 +92,11 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
 
   const navigate = (dir: -1 | 1) => {
     if (view === 'month') {
-      setCurrent(c => new Date(c.getFullYear(), c.getMonth() + dir, 1));
+      setCurrent(c => c ? new Date(c.getFullYear(), c.getMonth() + dir, 1) : c);
     } else if (view === 'week') {
-      setCurrent(c => new Date(c.getTime() + dir * 7 * 86400000));
+      setCurrent(c => c ? new Date(c.getTime() + dir * 7 * 86400000) : c);
     } else {
-      setCurrent(c => new Date(c.getTime() + dir * 86400000));
+      setCurrent(c => c ? new Date(c.getTime() + dir * 86400000) : c);
     }
   };
 
@@ -268,7 +285,7 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
 }
 
 function CalendarInner() {
-  const { userId: USER_ID } = useUser();
+  const { userId: USER_ID, userReady } = useUser();
   const searchParams = useSearchParams();
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -286,6 +303,7 @@ function CalendarInner() {
   const [importingGoogle, setImportingGoogle] = useState(false);
 
   useEffect(() => {
+    if (!userReady) return;
     getUpcomingAssignments(USER_ID)
       .then(data => setAssignments(data.assignments))
       .catch(console.error);
@@ -298,7 +316,7 @@ function CalendarInner() {
     getCalendarStatus(USER_ID)
       .then(res => setGoogleConnected(res.connected))
       .catch(() => {});
-  }, [USER_ID]);
+  }, [USER_ID, userReady, searchParams]);
 
   const handleFile = async (file: File) => {
     setUploadFilename(file.name);
