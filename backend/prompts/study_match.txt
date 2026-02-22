@@ -7,6 +7,8 @@ For each pair:
 
 Write a natural-language summary for each pair that is specific and helpful.
 
+Sort pairings by compatibility_score descending (highest first).
+
 Output ONLY valid JSON, no markdown, no backticks:
 {
   "pairings": [
