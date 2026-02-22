@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from config import get_mastery_tier
-from db.connection import get_conn
+from db.connection import table
 from models import GenerateQuizBody, SubmitQuizBody
 from services.gemini_service import call_gemini_json
 from services.graph_service import get_graph
@@ -24,15 +24,11 @@ def _load_prompt(name: str) -> str:
 
 @router.post("/generate")
 def generate_quiz(body: GenerateQuizBody):
-    conn = get_conn()
-    node = conn.execute(
-        "SELECT * FROM graph_nodes WHERE id = ?", (body.concept_node_id,)
-    ).fetchone()
-    conn.close()
-    if not node:
+    node_rows = table("graph_nodes").select("*", filters={"id": f"eq.{body.concept_node_id}"})
+    if not node_rows:
         raise HTTPException(status_code=404, detail="Concept node not found")
+    node = node_rows[0]
 
-    node = dict(node)
     graph_data = get_graph(body.user_id)
     quiz_ctx = get_quiz_context(body.user_id, body.concept_node_id)
     quiz_ctx_str = json.dumps(quiz_ctx, indent=2) if quiz_ctx else "No previous quiz history."
@@ -54,28 +50,26 @@ def generate_quiz(body: GenerateQuizBody):
 
     questions = result.get("questions", [])
     quiz_id = str(uuid.uuid4())
-    conn = get_conn()
-    conn.execute(
-        "INSERT INTO quiz_attempts (id, user_id, concept_node_id, difficulty, questions_json) VALUES (?, ?, ?, ?, ?)",
-        (quiz_id, body.user_id, body.concept_node_id, body.difficulty, json.dumps(questions)),
-    )
-    conn.commit()
-    conn.close()
+    table("quiz_attempts").insert({
+        "id": quiz_id,
+        "user_id": body.user_id,
+        "concept_node_id": body.concept_node_id,
+        "difficulty": body.difficulty,
+        "questions_json": questions,
+    })
     return {"quiz_id": quiz_id, "questions": questions}
 
 
 @router.post("/submit")
 def submit_quiz(body: SubmitQuizBody, background_tasks: BackgroundTasks):
-    conn = get_conn()
-    attempt = conn.execute(
-        "SELECT * FROM quiz_attempts WHERE id = ?", (body.quiz_id,)
-    ).fetchone()
-    if not attempt:
-        conn.close()
+    attempt_rows = table("quiz_attempts").select("*", filters={"id": f"eq.{body.quiz_id}"})
+    if not attempt_rows:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    attempt = attempt_rows[0]
 
-    attempt = dict(attempt)
-    questions = json.loads(attempt["questions_json"])
+    questions = attempt["questions_json"]
+    if isinstance(questions, str):
+        questions = json.loads(questions)
     user_id = attempt["user_id"]
     concept_node_id = attempt["concept_node_id"]
 
@@ -99,35 +93,47 @@ def submit_quiz(body: SubmitQuizBody, background_tasks: BackgroundTasks):
         })
 
     total = len(questions)
-    node = conn.execute(
-        "SELECT mastery_score FROM graph_nodes WHERE id = ?", (concept_node_id,)
-    ).fetchone()
-    mastery_before = node["mastery_score"] if node else 0.0
+
+    node_rows = table("graph_nodes").select(
+        "mastery_score,times_studied",
+        filters={"id": f"eq.{concept_node_id}"},
+    )
+    mastery_before = node_rows[0]["mastery_score"] if node_rows else 0.0
     mastery_after = max(0.0, min(1.0, mastery_before + (score * 0.03) - ((total - score) * 0.02)))
     new_tier = get_mastery_tier(mastery_after)
+    times_studied = (node_rows[0]["times_studied"] if node_rows else 0) + 1
 
-    conn.execute(
-        "UPDATE graph_nodes SET mastery_score = ?, mastery_tier = ?, times_studied = times_studied + 1, last_studied_at = ? WHERE id = ?",
-        (mastery_after, new_tier, datetime.utcnow().isoformat(), concept_node_id),
+    table("graph_nodes").update(
+        {
+            "mastery_score": mastery_after,
+            "mastery_tier": new_tier,
+            "times_studied": times_studied,
+            "last_studied_at": datetime.utcnow().isoformat(),
+        },
+        filters={"id": f"eq.{concept_node_id}"},
     )
-    conn.execute(
-        "UPDATE quiz_attempts SET score = ?, total = ?, answers_json = ?, completed_at = ? WHERE id = ?",
-        (score, total, json.dumps([a.model_dump() for a in body.answers]),
-         datetime.utcnow().isoformat(), body.quiz_id),
+    table("quiz_attempts").update(
+        {
+            "score": score,
+            "total": total,
+            "answers_json": [a.model_dump() for a in body.answers],
+            "completed_at": datetime.utcnow().isoformat(),
+        },
+        filters={"id": f"eq.{body.quiz_id}"},
     )
-    conn.commit()
 
-    node2 = conn.execute(
-        "SELECT concept_name FROM graph_nodes WHERE id = ?", (concept_node_id,)
-    ).fetchone()
-    user_row = conn.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
-    conn.close()
+    node2_rows = table("graph_nodes").select(
+        "concept_name", filters={"id": f"eq.{concept_node_id}"}
+    )
+    user_rows = table("users").select("name", filters={"id": f"eq.{user_id}"})
+    concept_name = node2_rows[0]["concept_name"] if node2_rows else "Unknown"
+    student_name = user_rows[0]["name"] if user_rows else "Student"
 
     existing_ctx = get_quiz_context(user_id, concept_node_id)
     ctx_prompt = (
         _load_prompt("quiz_context_update.txt")
-        .replace("{concept_name}", node2["concept_name"] if node2 else "Unknown")
-        .replace("{student_name}", user_row["name"] if user_row else "Student")
+        .replace("{concept_name}", concept_name)
+        .replace("{student_name}", student_name)
         .replace("{existing_quiz_context_json}", json.dumps(existing_ctx) if existing_ctx else "{}")
         .replace("{score}", str(score))
         .replace("{total}", str(total))

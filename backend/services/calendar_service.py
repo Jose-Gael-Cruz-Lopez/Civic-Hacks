@@ -5,7 +5,7 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.extraction_service import extract_text_from_file
 from services.gemini_service import call_gemini_json
-from db.connection import get_conn
+from db.connection import table
 
 PROMPT_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts", "syllabus_extraction.txt")
 
@@ -20,31 +20,24 @@ def parse_syllabus(extracted_text: str) -> dict:
 
 def save_assignments_to_db(user_id: str, assignments: list) -> int:
     """Write extracted assignment dicts straight to the DB. Returns count saved."""
-    conn = get_conn()
-    saved = 0
+    rows = []
     for a in assignments:
         title = (a.get("title") or "").strip()
         due_date = (a.get("due_date") or "").strip()
         if not title or not due_date:
             continue
-        conn.execute(
-            "INSERT INTO assignments "
-            "(id, user_id, title, course_name, due_date, assignment_type, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                str(uuid.uuid4()),
-                user_id,
-                title,
-                a.get("course_name") or "",
-                due_date,
-                a.get("assignment_type") or "other",
-                a.get("notes"),
-            ),
-        )
-        saved += 1
-    conn.commit()
-    conn.close()
-    return saved
+        rows.append({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": title,
+            "course_name": a.get("course_name") or "",
+            "due_date": due_date,
+            "assignment_type": a.get("assignment_type") or "other",
+            "notes": a.get("notes"),
+        })
+    if rows:
+        table("assignments").insert(rows)
+    return len(rows)
 
 
 def extract_assignments_from_file(file_bytes: bytes, filename: str, content_type: str) -> dict:

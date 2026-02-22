@@ -6,62 +6,6 @@ from routes import graph, learn, quiz, calendar, social, extract
 
 app = FastAPI(title="Sapling API", version="1.0.0")
 
-
-@app.on_event("startup")
-def _ensure_courses_table():
-    """Create/migrate the courses table on startup and seed preset courses."""
-    import uuid as _uuid
-    from db.connection import get_conn
-    conn = get_conn()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS courses (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            course_name TEXT NOT NULL,
-            color TEXT DEFAULT NULL,
-            created_at TEXT DEFAULT (datetime('now')),
-            UNIQUE(user_id, course_name),
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    """)
-    # Add color column for databases created before this migration
-    try:
-        conn.execute("ALTER TABLE courses ADD COLUMN color TEXT DEFAULT NULL")
-    except Exception:
-        pass  # Column already exists
-
-    # Assign default colors to known courses that are still NULL
-    _COURSE_COLORS = {
-        "CS 101": "#2563eb",
-        "CS 112": "#6366f1",
-        "MA 121": "#0d9488",
-        "MA 213": "#d97706",
-        "MA 311": "#7c3aed",
-    }
-    for course_name, color in _COURSE_COLORS.items():
-        conn.execute(
-            "UPDATE courses SET color = ? WHERE course_name = ? AND color IS NULL",
-            (color, course_name),
-        )
-
-    # Seed preset courses for each user (INSERT OR IGNORE so re-runs are safe)
-    _USER_COURSES = {
-        "user_andres": ["CS 101", "CS 112", "MA 121", "MA 213", "MA 311"],
-        "user_jack":   ["CS 101", "CS 112", "MA 121", "MA 213", "MA 311"],
-        "user_luke":   ["MA 121", "MA 213", "MA 311", "CS 101"],
-        "user_priya":  ["MA 121", "MA 213", "CS 112"],
-    }
-    for uid, courses in _USER_COURSES.items():
-        for course_name in courses:
-            color = _COURSE_COLORS.get(course_name)
-            conn.execute(
-                "INSERT OR IGNORE INTO courses (id, user_id, course_name, color) VALUES (?, ?, ?, ?)",
-                (str(_uuid.uuid4()), uid, course_name, color),
-            )
-
-    conn.commit()
-    conn.close()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[FRONTEND_URL, "http://localhost:3000"],
@@ -85,11 +29,9 @@ def health():
 
 @app.get("/api/users")
 def list_users():
-    from db.connection import get_conn
-    conn = get_conn()
-    rows = conn.execute("SELECT id, name FROM users ORDER BY name").fetchall()
-    conn.close()
-    return {"users": [{"id": r["id"], "name": r["name"]} for r in rows]}
+    from db.connection import table
+    rows = table("users").select("id,name,room_id", order="name.asc")
+    return {"users": [{"id": r["id"], "name": r["name"], "room_id": r.get("room_id")} for r in rows]}
 
 
 @app.get("/api/gemini-test")

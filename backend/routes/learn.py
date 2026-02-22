@@ -5,7 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
-from db.connection import get_conn
+from db.connection import table
 from models import StartSessionBody, ChatBody, EndSessionBody, ActionBody
 from services.gemini_service import call_gemini, extract_graph_update
 from services.graph_service import get_graph, apply_graph_update
@@ -36,12 +36,11 @@ def build_system_prompt(mode: str, student_name: str, graph_json: str, last_summ
 
 
 def get_conversation_history(session_id: str) -> list:
-    conn = get_conn()
-    rows = conn.execute(
-        "SELECT role, content FROM messages WHERE session_id = ? ORDER BY created_at ASC",
-        (session_id,),
-    ).fetchall()
-    conn.close()
+    rows = table("messages").select(
+        "role,content",
+        filters={"session_id": f"eq.{session_id}"},
+        order="created_at.asc",
+    )
     return [{"role": r["role"], "content": r["content"]} for r in rows]
 
 
@@ -54,35 +53,30 @@ def format_history_for_prompt(history: list) -> str:
 
 
 def save_message(session_id: str, role: str, content: str, graph_update: dict = None):
-    conn = get_conn()
-    mid = str(uuid.uuid4())
-    conn.execute(
-        "INSERT INTO messages (id, session_id, role, content, graph_update_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (mid, session_id, role, content,
-         json.dumps(graph_update) if graph_update else None,
-         datetime.utcnow().isoformat()),
-    )
-    conn.commit()
-    conn.close()
+    table("messages").insert({
+        "id": str(uuid.uuid4()),
+        "session_id": session_id,
+        "role": role,
+        "content": content,
+        "graph_update_json": graph_update if graph_update else None,
+        "created_at": datetime.utcnow().isoformat(),
+    })
 
 
 def get_user_name(user_id: str) -> str:
-    conn = get_conn()
-    row = conn.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
-    conn.close()
-    return row["name"] if row else "Student"
+    rows = table("users").select("name", filters={"id": f"eq.{user_id}"})
+    return rows[0]["name"] if rows else "Student"
 
 
 @router.post("/start-session")
 def start_session(body: StartSessionBody):
     session_id = str(uuid.uuid4())
-    conn = get_conn()
-    conn.execute(
-        "INSERT INTO sessions (id, user_id, mode, topic) VALUES (?, ?, ?, ?)",
-        (session_id, body.user_id, body.mode, body.topic),
-    )
-    conn.commit()
-    conn.close()
+    table("sessions").insert({
+        "id": session_id,
+        "user_id": body.user_id,
+        "mode": body.mode,
+        "topic": body.topic,
+    })
 
     student_name = get_user_name(body.user_id)
     graph_data = get_graph(body.user_id)
@@ -139,23 +133,23 @@ def chat(body: ChatBody):
 
 @router.post("/end-session")
 def end_session(body: EndSessionBody):
-    conn = get_conn()
-    session = conn.execute(
-        "SELECT user_id, started_at FROM sessions WHERE id = ?", (body.session_id,)
-    ).fetchone()
-    if not session:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    conn.execute(
-        "UPDATE sessions SET ended_at = ? WHERE id = ?",
-        (datetime.utcnow().isoformat(), body.session_id),
+    session_rows = table("sessions").select(
+        "user_id,started_at",
+        filters={"id": f"eq.{body.session_id}"},
     )
-    msgs = conn.execute(
-        "SELECT graph_update_json FROM messages WHERE session_id = ?", (body.session_id,)
-    ).fetchall()
-    conn.commit()
-    conn.close()
+    if not session_rows:
+        raise HTTPException(status_code=404, detail="Session not found")
+    session = session_rows[0]
+
+    table("sessions").update(
+        {"ended_at": datetime.utcnow().isoformat()},
+        filters={"id": f"eq.{body.session_id}"},
+    )
+
+    msgs = table("messages").select(
+        "graph_update_json",
+        filters={"session_id": f"eq.{body.session_id}"},
+    )
 
     try:
         elapsed_minutes = int(
@@ -168,7 +162,9 @@ def end_session(body: EndSessionBody):
     for msg in msgs:
         if msg["graph_update_json"]:
             try:
-                gu = json.loads(msg["graph_update_json"])
+                gu = msg["graph_update_json"]
+                if isinstance(gu, str):
+                    gu = json.loads(gu)
                 for upd in gu.get("updated_nodes", []):
                     concepts_covered.add(upd["concept_name"])
                 for nn in gu.get("new_nodes", []):
@@ -184,69 +180,53 @@ def end_session(body: EndSessionBody):
         "recommended_next": [],
     }
 
-    conn = get_conn()
-    conn.execute(
-        "UPDATE sessions SET summary_json = ? WHERE id = ?",
-        (json.dumps(summary), body.session_id),
+    table("sessions").update(
+        {"summary_json": summary},
+        filters={"id": f"eq.{body.session_id}"},
     )
-    conn.commit()
-    conn.close()
     return {"summary": summary}
 
 
 @router.get("/sessions/{user_id}")
 def list_sessions(user_id: str, limit: int = 10):
-    """Return the most recent sessions for a user, newest first."""
-    conn = get_conn()
-    rows = conn.execute(
-        """SELECT s.id, s.topic, s.mode, s.started_at, s.ended_at,
-                  COUNT(m.id) AS message_count
-           FROM sessions s
-           LEFT JOIN messages m ON m.session_id = s.id
-           WHERE s.user_id = ?
-           GROUP BY s.id
-           ORDER BY s.started_at DESC
-           LIMIT ?""",
-        (user_id, limit),
-    ).fetchall()
-    conn.close()
-    return {
-        "sessions": [
-            {
-                "id": r["id"],
-                "topic": r["topic"],
-                "mode": r["mode"],
-                "started_at": r["started_at"],
-                "ended_at": r["ended_at"],
-                "message_count": r["message_count"],
-                "is_active": r["ended_at"] is None,
-            }
-            for r in rows
-        ]
-    }
+    sessions = table("sessions").select(
+        "*",
+        filters={"user_id": f"eq.{user_id}"},
+        order="started_at.desc",
+        limit=limit,
+    )
+    result = []
+    for s in sessions:
+        msgs = table("messages").select("id", filters={"session_id": f"eq.{s['id']}"})
+        result.append({
+            "id": s["id"],
+            "topic": s["topic"],
+            "mode": s["mode"],
+            "started_at": s["started_at"],
+            "ended_at": s.get("ended_at"),
+            "message_count": len(msgs),
+            "is_active": s.get("ended_at") is None,
+        })
+    return {"sessions": result}
 
 
 @router.get("/sessions/{session_id}/resume")
 def resume_session(session_id: str):
-    """Return session metadata + full message history for client-side resume."""
-    conn = get_conn()
-    session = conn.execute(
-        "SELECT id, user_id, topic, mode, started_at, ended_at FROM sessions WHERE id = ?",
-        (session_id,),
-    ).fetchone()
-    if not session:
-        conn.close()
+    session_rows = table("sessions").select(
+        "id,user_id,topic,mode,started_at,ended_at",
+        filters={"id": f"eq.{session_id}"},
+    )
+    if not session_rows:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    msgs = conn.execute(
-        "SELECT id, role, content, created_at FROM messages WHERE session_id = ? ORDER BY created_at ASC",
-        (session_id,),
-    ).fetchall()
-    conn.close()
-
+    msgs = table("messages").select(
+        "id,role,content,created_at",
+        filters={"session_id": f"eq.{session_id}"},
+        order="created_at.asc",
+    )
     return {
-        "session": dict(session),
-        "messages": [dict(m) for m in msgs],
+        "session": session_rows[0],
+        "messages": msgs,
     }
 
 

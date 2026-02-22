@@ -4,7 +4,7 @@ import string
 
 from fastapi import APIRouter, HTTPException, Query
 
-from db.connection import get_conn
+from db.connection import table
 from models import CreateRoomBody, JoinRoomBody, MatchBody
 from services.graph_service import get_graph
 from services.matching_service import find_study_matches
@@ -18,79 +18,69 @@ router = APIRouter()
 def create_room(body: CreateRoomBody):
     invite_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
     room_id = str(uuid.uuid4())
-    conn = get_conn()
-    conn.execute(
-        "INSERT INTO rooms (id, name, invite_code, created_by) VALUES (?, ?, ?, ?)",
-        (room_id, body.room_name, invite_code, body.user_id),
-    )
-    conn.execute(
-        "INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room_id, body.user_id)
-    )
-    conn.commit()
-    conn.close()
+    table("rooms").insert({
+        "id": room_id,
+        "name": body.room_name,
+        "invite_code": invite_code,
+        "created_by": body.user_id,
+    })
+    table("room_members").insert({"room_id": room_id, "user_id": body.user_id})
     invalidate_summary(room_id)
     return {"room_id": room_id, "invite_code": invite_code}
 
 
 @router.post("/rooms/join")
 def join_room(body: JoinRoomBody):
-    conn = get_conn()
-    room = conn.execute(
-        "SELECT * FROM rooms WHERE invite_code = ?", (body.invite_code.strip().upper(),)
-    ).fetchone()
-    if not room:
-        conn.close()
+    room_rows = table("rooms").select(
+        "*", filters={"invite_code": f"eq.{body.invite_code.strip().upper()}"}
+    )
+    if not room_rows:
         raise HTTPException(status_code=404, detail="Room not found")
-    room = dict(room)
-    existing = conn.execute(
-        "SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?",
-        (room["id"], body.user_id),
-    ).fetchone()
+    room = room_rows[0]
+
+    existing = table("room_members").select(
+        "room_id",
+        filters={"room_id": f"eq.{room['id']}", "user_id": f"eq.{body.user_id}"},
+    )
     if not existing:
-        conn.execute(
-            "INSERT INTO room_members (room_id, user_id) VALUES (?, ?)", (room["id"], body.user_id)
-        )
-        conn.commit()
+        table("room_members").insert({"room_id": room["id"], "user_id": body.user_id})
         invalidate_summary(room["id"])
-    member_count = conn.execute(
-        "SELECT COUNT(*) as c FROM room_members WHERE room_id = ?", (room["id"],)
-    ).fetchone()["c"]
-    conn.close()
-    return {"room": {**room, "member_count": member_count}}
+
+    members = table("room_members").select("user_id", filters={"room_id": f"eq.{room['id']}"})
+    return {"room": {**room, "member_count": len(members)}}
 
 
 @router.get("/rooms/{user_id}")
 def get_user_rooms(user_id: str):
-    conn = get_conn()
-    rows = conn.execute(
-        """SELECT r.*, COUNT(rm2.user_id) as member_count
-           FROM rooms r
-           JOIN room_members rm ON r.id = rm.room_id
-           LEFT JOIN room_members rm2 ON r.id = rm2.room_id
-           WHERE rm.user_id = ?
-           GROUP BY r.id""",
-        (user_id,),
-    ).fetchall()
-    conn.close()
-    return {"rooms": [dict(r) for r in rows]}
+    memberships = table("room_members").select("room_id", filters={"user_id": f"eq.{user_id}"})
+    room_ids = [m["room_id"] for m in memberships]
+    if not room_ids:
+        return {"rooms": []}
+
+    rooms = table("rooms").select("*", filters={"id": f"in.({','.join(room_ids)})"})
+    for room in rooms:
+        members = table("room_members").select("user_id", filters={"room_id": f"eq.{room['id']}"})
+        room["member_count"] = len(members)
+    return {"rooms": rooms}
 
 
 @router.get("/rooms/{room_id}/overview")
 def room_overview(room_id: str, viewer_id: str = Query("user_john")):
-    conn = get_conn()
-    room = conn.execute("SELECT * FROM rooms WHERE id = ?", (room_id,)).fetchone()
-    if not room:
-        conn.close()
+    room_rows = table("rooms").select("*", filters={"id": f"eq.{room_id}"})
+    if not room_rows:
         raise HTTPException(status_code=404, detail="Room not found")
-    members_rows = conn.execute(
-        "SELECT u.id, u.name FROM users u JOIN room_members rm ON u.id = rm.user_id WHERE rm.room_id = ?",
-        (room_id,),
-    ).fetchall()
-    conn.close()
+    room = room_rows[0]
+
+    member_id_rows = table("room_members").select("user_id", filters={"room_id": f"eq.{room_id}"})
+    member_ids = [m["user_id"] for m in member_id_rows]
 
     members = []
-    for m in members_rows:
-        members.append({"user_id": m["id"], "name": m["name"], "graph": get_graph(m["id"])})
+    if member_ids:
+        user_rows = table("users").select(
+            "id,name", filters={"id": f"in.({','.join(member_ids)})"}
+        )
+        for u in user_rows:
+            members.append({"user_id": u["id"], "name": u["name"], "graph": get_graph(u["id"])})
 
     member_summaries = []
     for m in members:
@@ -112,46 +102,51 @@ def room_overview(room_id: str, viewer_id: str = Query("user_john")):
             print(f"Gemini summary failed: {e}")
             ai_summary = "This study group has complementary strengths across multiple subjects."
 
-    return {"room": dict(room), "members": members, "ai_summary": ai_summary}
+    return {"room": room, "members": members, "ai_summary": ai_summary}
 
 
 @router.get("/rooms/{room_id}/activity")
 def room_activity(room_id: str):
-    conn = get_conn()
-    rows = conn.execute(
-        """SELECT ra.*, u.name as user_name FROM room_activity ra
-           JOIN users u ON ra.user_id = u.id
-           WHERE ra.room_id = ?
-           ORDER BY ra.created_at DESC LIMIT 20""",
-        (room_id,),
-    ).fetchall()
-    conn.close()
-    activities = []
-    for r in rows:
-        d = dict(r)
-        activities.append({
-            "id": d["id"],
-            "user_name": d["user_name"],
-            "activity_type": d["activity_type"],
-            "concept_name": d.get("concept_name"),
-            "detail": d.get("detail", ""),
-            "created_at": d["created_at"],
-        })
+    activity_rows = table("room_activity").select(
+        "*",
+        filters={"room_id": f"eq.{room_id}"},
+        order="created_at.desc",
+        limit=20,
+    )
+
+    user_ids = list(set(a["user_id"] for a in activity_rows))
+    user_name_map = {}
+    if user_ids:
+        user_rows = table("users").select("id,name", filters={"id": f"in.({','.join(user_ids)})"})
+        user_name_map = {u["id"]: u["name"] for u in user_rows}
+
+    activities = [
+        {
+            "id": a["id"],
+            "user_name": user_name_map.get(a["user_id"], a["user_id"]),
+            "activity_type": a["activity_type"],
+            "concept_name": a.get("concept_name"),
+            "detail": a.get("detail", ""),
+            "created_at": a["created_at"],
+        }
+        for a in activity_rows
+    ]
     return {"activities": activities}
 
 
 @router.post("/rooms/{room_id}/match")
 def match_partners(room_id: str, body: MatchBody):
-    conn = get_conn()
-    members_rows = conn.execute(
-        "SELECT u.id, u.name FROM users u JOIN room_members rm ON u.id = rm.user_id WHERE rm.room_id = ?",
-        (room_id,),
-    ).fetchall()
-    conn.close()
-    members_with_graphs = [
-        {"user_id": m["id"], "name": m["name"], "graph": get_graph(m["id"])}
-        for m in members_rows
-    ]
+    member_id_rows = table("room_members").select("user_id", filters={"room_id": f"eq.{room_id}"})
+    member_ids = [m["user_id"] for m in member_id_rows]
+
+    members_with_graphs = []
+    if member_ids:
+        user_rows = table("users").select("id,name", filters={"id": f"in.({','.join(member_ids)})"})
+        members_with_graphs = [
+            {"user_id": u["id"], "name": u["name"], "graph": get_graph(u["id"])}
+            for u in user_rows
+        ]
+
     try:
         matches = find_study_matches(body.user_id, members_with_graphs)
     except Exception as e:
@@ -162,55 +157,40 @@ def match_partners(room_id: str, body: MatchBody):
 @router.post("/school-match")
 def school_match(body: MatchBody):
     """
-    Match the requesting user against all users in the database who are NOT
-    in any of their study rooms. These are the 'school-wide' pool.
+    Match the requesting user against all users NOT in any of their study rooms.
     """
-    conn = get_conn()
+    user_room_rows = table("room_members").select(
+        "room_id", filters={"user_id": f"eq.{body.user_id}"}
+    )
+    user_room_ids = [r["room_id"] for r in user_room_rows]
 
-    # Find all room IDs the requesting user belongs to
-    user_room_ids = [
-        row["room_id"]
-        for row in conn.execute(
-            "SELECT room_id FROM room_members WHERE user_id = ?", (body.user_id,)
-        ).fetchall()
-    ]
-
-    # Fetch every user except the requester and anyone sharing a room with them
+    excluded_ids = set()
     if user_room_ids:
-        placeholders = ",".join("?" * len(user_room_ids))
-        excluded_ids = [
-            row["user_id"]
-            for row in conn.execute(
-                f"SELECT DISTINCT user_id FROM room_members WHERE room_id IN ({placeholders})",
-                user_room_ids,
-            ).fetchall()
-        ]
-    else:
-        excluded_ids = [body.user_id]
+        room_member_rows = table("room_members").select(
+            "user_id", filters={"room_id": f"in.({','.join(user_room_ids)})"}
+        )
+        excluded_ids = {r["user_id"] for r in room_member_rows}
 
-    if body.user_id not in excluded_ids:
-        excluded_ids.append(body.user_id)
+    excluded_ids.add(body.user_id)
+    excl_list = list(excluded_ids)
 
-    placeholders = ",".join("?" * len(excluded_ids))
-    school_users = conn.execute(
-        f"SELECT id, name FROM users WHERE id NOT IN ({placeholders})",
-        excluded_ids,
-    ).fetchall()
-    conn.close()
+    school_users = table("users").select(
+        "id,name",
+        filters={"id": f"not.in.({','.join(excl_list)})"},
+    )
 
     members_with_graphs = [
         {"user_id": u["id"], "name": u["name"], "graph": get_graph(u["id"])}
         for u in school_users
     ]
 
-    # Include the requesting user's graph so matching_service can compare
     requester_graph = get_graph(body.user_id)
-    requester_name_row = get_conn().execute(
-        "SELECT name FROM users WHERE id = ?", (body.user_id,)
-    ).fetchone()
-    requester_name = requester_name_row["name"] if requester_name_row else body.user_id
+    requester_rows = table("users").select("name", filters={"id": f"eq.{body.user_id}"})
+    requester_name = requester_rows[0]["name"] if requester_rows else body.user_id
 
-    all_members = [{"user_id": body.user_id, "name": requester_name, "graph": requester_graph}] + members_with_graphs
+    all_members = [
+        {"user_id": body.user_id, "name": requester_name, "graph": requester_graph}
+    ] + members_with_graphs
 
     try:
         matches = find_study_matches(body.user_id, all_members)

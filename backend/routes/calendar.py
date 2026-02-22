@@ -1,14 +1,8 @@
 """
 backend/routes/calendar.py
 
-Merged and fixed version combining:
-  - Syllabus extraction, assignment CRUD, study blocks (from current file)
-  - sync endpoint (from current file)
-  - OAuth state carries user_id so callback stores tokens under the correct user
-  - Token refresh: expired access tokens are automatically renewed
-  - GET /import/{user_id} pulls Google Calendar events into the app
-  - GET /status/{user_id} lets the frontend check connection status
-  - DELETE /disconnect/{user_id} removes stored tokens
+Syllabus extraction, assignment CRUD, Google Calendar OAuth and sync.
+Migrated from SQLite to Supabase REST API.
 """
 
 import uuid
@@ -26,7 +20,7 @@ from config import (
     GOOGLE_SCOPES,
     FRONTEND_URL,
 )
-from db.connection import get_conn
+from db.connection import table
 from models import SaveAssignmentsBody, StudyBlockBody, ExportBody, SyncBody
 from services.calendar_service import extract_assignments_from_file
 
@@ -57,13 +51,11 @@ def _google_client_config() -> dict:
 
 
 def _encode_state(user_id: str) -> str:
-    """Pack user_id into a base64 JSON string for the OAuth state parameter."""
     payload = json.dumps({"user_id": user_id})
     return base64.urlsafe_b64encode(payload.encode()).decode()
 
 
 def _decode_state(state: str) -> str:
-    """Unpack user_id from the OAuth state parameter. Returns empty string on failure."""
     try:
         payload = base64.urlsafe_b64decode(state.encode()).decode()
         return json.loads(payload).get("user_id", "")
@@ -72,10 +64,6 @@ def _decode_state(state: str) -> str:
 
 
 def _get_refreshed_credentials(token_row: dict) -> "Credentials":
-    """
-    Build a Credentials object from a stored token row and refresh if expired.
-    Persists the new access token back to the DB automatically.
-    """
     creds = Credentials(
         token=token_row["access_token"],
         refresh_token=token_row["refresh_token"],
@@ -90,8 +78,7 @@ def _get_refreshed_credentials(token_row: dict) -> "Credentials":
             expiry = datetime.fromisoformat(token_row["expires_at"])
             if expiry.tzinfo is None:
                 expiry = expiry.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
-            if (expiry - now).total_seconds() < 300:
+            if (expiry - datetime.now(timezone.utc)).total_seconds() < 300:
                 needs_refresh = True
         except ValueError:
             needs_refresh = True
@@ -100,50 +87,33 @@ def _get_refreshed_credentials(token_row: dict) -> "Credentials":
 
     if needs_refresh and creds.refresh_token:
         creds.refresh(Request())
-        conn = get_conn()
-        conn.execute(
-            "UPDATE oauth_tokens SET access_token = ?, expires_at = ? WHERE user_id = ?",
-            (
-                creds.token,
-                creds.expiry.isoformat() if creds.expiry else "",
-                token_row["user_id"],
-            ),
+        table("oauth_tokens").update(
+            {
+                "access_token": creds.token,
+                "expires_at": creds.expiry.isoformat() if creds.expiry else "",
+            },
+            filters={"user_id": f"eq.{token_row['user_id']}"},
         )
-        conn.commit()
-        conn.close()
 
     return creds
 
 
-def _require_google_creds(user_id: str):
-    """
-    Fetch stored credentials for a user, refresh if needed, return (creds, conn).
-    Raises HTTP 400 if Google isn't configured, 401 if the user isn't connected.
-    Caller is responsible for closing conn.
-    """
+def _require_google_creds(user_id: str) -> "Credentials":
     if not GOOGLE_AVAILABLE or not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Google Calendar not configured")
-    conn = get_conn()
-    token_row = conn.execute(
-        "SELECT * FROM oauth_tokens WHERE user_id = ?", (user_id,)
-    ).fetchone()
-    if not token_row:
-        conn.close()
+    token_rows = table("oauth_tokens").select("*", filters={"user_id": f"eq.{user_id}"})
+    if not token_rows:
         raise HTTPException(
             status_code=401,
             detail="Not connected to Google Calendar. Visit /api/calendar/auth-url?user_id=<id> to connect.",
         )
-    token_row = dict(token_row)
-    creds = _get_refreshed_credentials(token_row)
-    return creds, conn
+    return _get_refreshed_credentials(token_rows[0])
 
 
 # ── Syllabus extraction ───────────────────────────────────────────────────────
 
 @router.post("/extract")
-async def extract(
-    file: UploadFile = File(...),
-):
+async def extract(file: UploadFile = File(...)):
     file_bytes = await file.read()
     filename = file.filename or "upload"
     content_type = file.content_type or "application/octet-stream"
@@ -158,64 +128,60 @@ async def extract(
 
 @router.post("/save")
 def save_assignments(body: SaveAssignmentsBody):
-    conn = get_conn()
-    saved = 0
-    for a in body.assignments:
-        aid = str(uuid.uuid4())
-        conn.execute(
-            """INSERT INTO assignments
-               (id, user_id, title, course_name, due_date, assignment_type, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (aid, body.user_id, a.title, a.course_name, a.due_date, a.assignment_type, a.notes),
-        )
-        saved += 1
-    conn.commit()
-    conn.close()
-    return {"saved_count": saved}
+    rows = [
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": body.user_id,
+            "title": a.title,
+            "course_name": a.course_name,
+            "due_date": a.due_date,
+            "assignment_type": a.assignment_type,
+            "notes": a.notes,
+        }
+        for a in body.assignments
+    ]
+    if rows:
+        table("assignments").insert(rows)
+    return {"saved_count": len(rows)}
 
 
 @router.get("/upcoming/{user_id}")
 def get_upcoming(user_id: str):
-    conn = get_conn()
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    rows = conn.execute(
-        "SELECT * FROM assignments WHERE user_id = ? AND due_date >= ? ORDER BY due_date ASC LIMIT 20",
-        (user_id, today),
-    ).fetchall()
-    conn.close()
-    return {"assignments": [dict(r) for r in rows]}
+    rows = table("assignments").select(
+        "*",
+        filters={"user_id": f"eq.{user_id}", "due_date": f"gte.{today}"},
+        order="due_date.asc",
+        limit=20,
+    )
+    return {"assignments": rows}
 
 
 @router.post("/suggest-study-blocks")
 def suggest_study_blocks(body: StudyBlockBody):
-    conn = get_conn()
     today = datetime.utcnow().strftime("%Y-%m-%d")
-    assignments = conn.execute(
-        "SELECT * FROM assignments WHERE user_id = ? AND due_date >= ? ORDER BY due_date ASC",
-        (body.user_id, today),
-    ).fetchall()
-    conn.close()
-    blocks = []
-    for a in assignments:
-        a = dict(a)
-        blocks.append({
+    assignments = table("assignments").select(
+        "*",
+        filters={"user_id": f"eq.{body.user_id}", "due_date": f"gte.{today}"},
+        order="due_date.asc",
+    )
+    blocks = [
+        {
             "topic": a["title"],
             "suggested_date": a["due_date"],
             "duration_minutes": 60,
             "reason": f"Due {a['due_date']}",
             "related_assignment_id": a["id"],
-        })
+        }
+        for a in assignments
+    ]
     return {"study_blocks": blocks[:5]}
 
 
 # ── Google OAuth ──────────────────────────────────────────────────────────────
 
 @router.get("/auth-url")
-def auth_url(user_id: str = Query(..., description="The Sapling user_id to connect")):
-    """
-    Returns a Google OAuth consent URL. user_id is embedded in the state
-    parameter so the callback knows whose tokens to store.
-    """
+def auth_url(user_id: str = Query(...)):
     if not GOOGLE_AVAILABLE or not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Google Calendar not configured")
     flow = Flow.from_client_config(_google_client_config(), scopes=GOOGLE_SCOPES)
@@ -229,14 +195,7 @@ def auth_url(user_id: str = Query(..., description="The Sapling user_id to conne
 
 
 @router.get("/callback")
-def callback(
-    code: str = Query(...),
-    state: str = Query(...),
-):
-    """
-    Google redirects here after the user grants consent.
-    Decodes user_id from state, exchanges code for tokens, stores them.
-    """
+def callback(code: str = Query(...), state: str = Query(...)):
     if not GOOGLE_AVAILABLE:
         return RedirectResponse(f"{FRONTEND_URL}/calendar?error=google_not_configured")
 
@@ -244,10 +203,8 @@ def callback(
     if not user_id:
         return RedirectResponse(f"{FRONTEND_URL}/calendar?error=invalid_state")
 
-    conn = get_conn()
-    user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
-    if not user:
-        conn.close()
+    user_rows = table("users").select("id", filters={"id": f"eq.{user_id}"})
+    if not user_rows:
         return RedirectResponse(f"{FRONTEND_URL}/calendar?error=user_not_found")
 
     flow = Flow.from_client_config(_google_client_config(), scopes=GOOGLE_SCOPES)
@@ -255,41 +212,31 @@ def callback(
     flow.fetch_token(code=code)
     creds = flow.credentials
 
-    conn.execute(
-        "INSERT OR REPLACE INTO oauth_tokens (user_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)",
-        (
-            user_id,
-            creds.token,
-            creds.refresh_token or "",
-            creds.expiry.isoformat() if creds.expiry else "",
-        ),
+    table("oauth_tokens").upsert(
+        {
+            "user_id": user_id,
+            "access_token": creds.token,
+            "refresh_token": creds.refresh_token or "",
+            "expires_at": creds.expiry.isoformat() if creds.expiry else "",
+        },
+        on_conflict="user_id",
     )
-    conn.commit()
-    conn.close()
-
     return RedirectResponse(f"{FRONTEND_URL}/calendar?connected=true&user_id={user_id}")
 
 
 @router.get("/status/{user_id}")
 def calendar_status(user_id: str):
-    """Returns whether the user has a connected Google Calendar token."""
-    conn = get_conn()
-    row = conn.execute(
-        "SELECT access_token, expires_at FROM oauth_tokens WHERE user_id = ?", (user_id,)
-    ).fetchone()
-    conn.close()
-    if not row or not row["access_token"]:
+    rows = table("oauth_tokens").select(
+        "access_token,expires_at", filters={"user_id": f"eq.{user_id}"}
+    )
+    if not rows or not rows[0]["access_token"]:
         return {"connected": False}
-    return {"connected": True, "expires_at": row["expires_at"]}
+    return {"connected": True, "expires_at": rows[0]["expires_at"]}
 
 
 @router.delete("/disconnect/{user_id}")
 def disconnect(user_id: str):
-    """Removes stored OAuth tokens for a user, disconnecting their Google Calendar."""
-    conn = get_conn()
-    conn.execute("DELETE FROM oauth_tokens WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    table("oauth_tokens").delete({"user_id": f"eq.{user_id}"})
     return {"disconnected": True}
 
 
@@ -301,24 +248,15 @@ def import_from_google(
     max_results: int = Query(50, ge=1, le=250),
     days_ahead: int = Query(30, ge=1, le=365),
 ):
-    """
-    Pulls upcoming events from the user's primary Google Calendar.
-    Returns them as a preview list — the user decides which to save as assignments.
-    """
-    creds, conn = _require_google_creds(user_id)
-    conn.close()
-
+    creds = _require_google_creds(user_id)
     service = build("calendar", "v3", credentials=creds)
     now = datetime.now(timezone.utc)
-    time_min = now.isoformat()
-    time_max = (now + timedelta(days=days_ahead)).isoformat()
-
     result = (
         service.events()
         .list(
             calendarId="primary",
-            timeMin=time_min,
-            timeMax=time_max,
+            timeMin=now.isoformat(),
+            timeMax=(now + timedelta(days=days_ahead)).isoformat(),
             maxResults=max_results,
             singleEvents=True,
             orderBy="startTime",
@@ -342,7 +280,6 @@ def import_from_google(
             "html_link": item.get("htmlLink"),
             "location": item.get("location", ""),
         })
-
     return {"events": events, "count": len(events)}
 
 
@@ -350,20 +287,27 @@ def import_from_google(
 
 @router.post("/sync")
 def sync_to_google(body: SyncBody):
-    """
-    Pushes all unsynced Sapling assignments (no google_event_id) to Google Calendar.
-    """
-    creds, conn = _require_google_creds(body.user_id)
+    creds = _require_google_creds(body.user_id)
     service = build("calendar", "v3", credentials=creds)
 
-    unsynced = conn.execute(
-        "SELECT * FROM assignments WHERE user_id = ? AND (google_event_id IS NULL OR google_event_id = '')",
-        (body.user_id,),
-    ).fetchall()
+    unsynced = table("assignments").select(
+        "*",
+        filters={
+            "user_id": f"eq.{body.user_id}",
+            "google_event_id": "is.null",
+        },
+    )
+    # Also catch empty-string google_event_id
+    unsynced += table("assignments").select(
+        "*",
+        filters={
+            "user_id": f"eq.{body.user_id}",
+            "google_event_id": "eq.",
+        },
+    )
 
     synced = 0
-    for row in unsynced:
-        a = dict(row)
+    for a in unsynced:
         if not a.get("due_date"):
             continue
         event = {
@@ -373,13 +317,12 @@ def sync_to_google(body: SyncBody):
             "end": {"date": a["due_date"]},
         }
         created = service.events().insert(calendarId="primary", body=event).execute()
-        conn.execute(
-            "UPDATE assignments SET google_event_id = ? WHERE id = ?", (created["id"], a["id"])
+        table("assignments").update(
+            {"google_event_id": created["id"]},
+            filters={"id": f"eq.{a['id']}"},
         )
         synced += 1
 
-    conn.commit()
-    conn.close()
     return {"synced_count": synced}
 
 
@@ -387,22 +330,16 @@ def sync_to_google(body: SyncBody):
 
 @router.post("/export")
 def export_to_google(body: ExportBody):
-    """
-    Pushes selected Sapling assignments to Google Calendar as all-day events.
-    Skips assignments already exported (google_event_id already set).
-    """
-    creds, conn = _require_google_creds(body.user_id)
+    creds = _require_google_creds(body.user_id)
     service = build("calendar", "v3", credentials=creds)
 
     exported = 0
     skipped = 0
     for aid in body.assignment_ids:
-        assignment = conn.execute(
-            "SELECT * FROM assignments WHERE id = ?", (aid,)
-        ).fetchone()
-        if not assignment:
+        rows = table("assignments").select("*", filters={"id": f"eq.{aid}"})
+        if not rows:
             continue
-        a = dict(assignment)
+        a = rows[0]
 
         if a.get("google_event_id"):
             skipped += 1
@@ -415,11 +352,10 @@ def export_to_google(body: ExportBody):
             "end": {"date": a["due_date"]},
         }
         created = service.events().insert(calendarId="primary", body=event).execute()
-        conn.execute(
-            "UPDATE assignments SET google_event_id = ? WHERE id = ?", (created["id"], aid)
+        table("assignments").update(
+            {"google_event_id": created["id"]},
+            filters={"id": f"eq.{aid}"},
         )
         exported += 1
 
-    conn.commit()
-    conn.close()
     return {"exported_count": exported, "skipped_count": skipped}

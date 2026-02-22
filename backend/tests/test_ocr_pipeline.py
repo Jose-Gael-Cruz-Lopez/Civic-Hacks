@@ -6,13 +6,11 @@ Run from backend/:
 """
 import sys
 import os
-import sqlite3
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import DATABASE_PATH
-from services.gemini_service import call_gemini_json
 from services.calendar_service import save_assignments_to_db, process_and_save_syllabus
+from db.connection import table
 
 # ── Fake syllabus text (skips OCR so no Tesseract needed) ──────────────────────
 SAMPLE_SYLLABUS = """
@@ -45,30 +43,25 @@ def test_gemini_parse():
 
 def test_save_to_db(assignments):
     print("\n[2] Testing save_assignments_to_db()...")
-    # Count before
-    conn = sqlite3.connect(DATABASE_PATH)
-    before = conn.execute(
-        "SELECT COUNT(*) FROM assignments WHERE user_id = ?", (TEST_USER,)
-    ).fetchone()[0]
-    conn.close()
+    before_rows = table("assignments").select(
+        "id", filters={"user_id": f"eq.{TEST_USER}"}
+    )
+    before = len(before_rows)
 
     saved = save_assignments_to_db(TEST_USER, assignments)
     assert saved == len(assignments), f"Expected {len(assignments)} saved, got {saved}"
 
-    conn = sqlite3.connect(DATABASE_PATH)
-    after = conn.execute(
-        "SELECT COUNT(*) FROM assignments WHERE user_id = ?", (TEST_USER,)
-    ).fetchone()[0]
-    rows = conn.execute(
-        "SELECT title, due_date, assignment_type FROM assignments WHERE user_id = ? ORDER BY due_date",
-        (TEST_USER,)
-    ).fetchall()
-    conn.close()
+    after_rows = table("assignments").select(
+        "title,due_date,assignment_type",
+        filters={"user_id": f"eq.{TEST_USER}"},
+        order="due_date.asc",
+    )
+    after = len(after_rows)
 
     print(f"    Saved {saved} rows (DB went from {before} → {after} for {TEST_USER})")
-    print(f"    Sample rows now in DB:")
-    for r in rows[-5:]:
-        print(f"      • {r[0]} | {r[1]} | {r[2]}")
+    print("    Sample rows now in DB:")
+    for r in after_rows[-5:]:
+        print(f"      • {r['title']} | {r['due_date']} | {r['assignment_type']}")
 
 
 def test_full_pipeline():
@@ -90,7 +83,7 @@ def test_full_pipeline():
 if __name__ == "__main__":
     print("=" * 55)
     print("Sapling OCR Pipeline Test")
-    print(f"DB: {DATABASE_PATH}")
+    print("DB: Supabase")
     print("=" * 55)
 
     try:

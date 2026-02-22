@@ -1,40 +1,18 @@
 """
-Seed the database with sample data.
+Seed Supabase with sample data.
 
-Run whenever you want to (re)populate the DB:
+Run from the backend directory:
     python3 db/seed.py
 
-WARNING: Uses INSERT OR IGNORE — re-running won't duplicate rows,
-but won't update changed values either. Delete sapling.db first
-to do a full reset, then run init_db.py then seed.py.
-
-Study room members:
-  user_andres  — Andres Lopez (CS major)
-  user_jack    — Jack He      (CS major)
-  user_luke    — Luke Cooper  (Math major)
-  user_priya   — Priya Patel  (Math major)
-
-School-wide placeholder users (not in any room):
-  user_school_1 — Sofia Ramirez   (Physics/CS)
-  user_school_2 — Marcus Webb     (CS/Math)
-  user_school_3 — Aisha Johnson   (Biology/Stats)
-  user_school_4 — Daniel Kim      (Math/Physics)
-  user_school_5 — Elena Vasquez   (CS/Stats)
-  user_school_6 — Omar Hassan     (Math/CS)
+Uses upsert (merge-duplicates) so re-running is safe.
 """
-import sqlite3
 import uuid
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import DATABASE_PATH, get_mastery_tier
-
-
-def get_conn():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+from config import get_mastery_tier
+from db.connection import table
 
 
 # ─── Users ────────────────────────────────────────────────────────────────────
@@ -57,53 +35,51 @@ SCHOOL_USERS = [
 
 
 def seed_users():
-    conn = get_conn()
-    for uid, name, email, streak in USERS:
-        conn.execute(
-            "INSERT OR IGNORE INTO users (id, name, email, streak_count) VALUES (?, ?, ?, ?)",
-            (uid, name, email, streak),
-        )
-    for uid, name, email, streak in SCHOOL_USERS:
-        conn.execute(
-            "INSERT OR IGNORE INTO users (id, name, email, streak_count) VALUES (?, ?, ?, ?)",
-            (uid, name, email, streak),
-        )
-    conn.commit()
-    conn.close()
+    rows = [
+        {"id": uid, "name": name, "email": email, "streak_count": streak}
+        for uid, name, email, streak in USERS + SCHOOL_USERS
+    ]
+    table("users").upsert(rows, on_conflict="id")
     print("Users seeded.")
 
 
 # ─── Knowledge graphs ─────────────────────────────────────────────────────────
 
 def seed_graph(user_id: str, nodes_data: list, edges_data: list):
-    conn = get_conn()
     name_to_id = {}
+    node_rows = []
     for n in nodes_data:
         nid = str(uuid.uuid4())
         name_to_id[n["concept_name"]] = nid
-        conn.execute(
-            "INSERT OR IGNORE INTO graph_nodes "
-            "(id, user_id, concept_name, mastery_score, mastery_tier, subject) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (nid, user_id, n["concept_name"], n["mastery_score"],
-             get_mastery_tier(n["mastery_score"]), n["subject"]),
-        )
+        node_rows.append({
+            "id": nid,
+            "user_id": user_id,
+            "concept_name": n["concept_name"],
+            "mastery_score": n["mastery_score"],
+            "mastery_tier": get_mastery_tier(n["mastery_score"]),
+            "subject": n["subject"],
+        })
+    if node_rows:
+        table("graph_nodes").insert(node_rows)
+
+    edge_rows = []
     for e in edges_data:
         src = name_to_id.get(e["source"])
         tgt = name_to_id.get(e["target"])
         if src and tgt:
-            conn.execute(
-                "INSERT OR IGNORE INTO graph_edges "
-                "(id, user_id, source_node_id, target_node_id, strength) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (str(uuid.uuid4()), user_id, src, tgt, e["strength"]),
-            )
-    conn.commit()
-    conn.close()
+            edge_rows.append({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "source_node_id": src,
+                "target_node_id": tgt,
+                "strength": e["strength"],
+            })
+    if edge_rows:
+        table("graph_edges").insert(edge_rows)
     print(f"Graph seeded for {user_id}.")
 
 
-# ── Room member graphs (unchanged) ────────────────────────────────────────────
+# ── Room member graphs ─────────────────────────────────────────────────────────
 
 JOHN_NODES = [
     {"concept_name": "Variables & Data Types",      "subject": "CS 101", "mastery_score": 0.92},
@@ -286,9 +262,6 @@ PRIYA_EDGES = [
     {"source": "Linked Lists",            "target": "Binary Trees",            "strength": 0.35},
 ]
 
-# ── School-wide placeholder graphs ────────────────────────────────────────────
-
-# Sofia Ramirez — Physics/CS, strong in CS fundamentals, light on math
 SOFIA_NODES = [
     {"concept_name": "Variables & Data Types",      "subject": "CS 101", "mastery_score": 0.90},
     {"concept_name": "Control Flow",                "subject": "CS 101", "mastery_score": 0.88},
@@ -314,7 +287,6 @@ SOFIA_EDGES = [
     {"source": "Descriptive Statistics", "target": "Probability Basics",         "strength": 0.45},
 ]
 
-# Marcus Webb — CS/Math double major, well-rounded but not exceptional anywhere
 MARCUS_NODES = [
     {"concept_name": "Variables & Data Types",      "subject": "CS 101", "mastery_score": 0.75},
     {"concept_name": "Control Flow",                "subject": "CS 101", "mastery_score": 0.70},
@@ -345,7 +317,6 @@ MARCUS_EDGES = [
     {"source": "Systems of Linear Equations", "target": "Matrix Operations", "strength": 0.7},
 ]
 
-# Aisha Johnson — Biology/Stats, very strong in stats, weak in CS
 AISHA_NODES = [
     {"concept_name": "Descriptive Statistics",      "subject": "MA 213", "mastery_score": 0.97},
     {"concept_name": "Probability Basics",          "subject": "MA 213", "mastery_score": 0.93},
@@ -369,7 +340,6 @@ AISHA_EDGES = [
     {"source": "Control Flow",            "target": "Functions",               "strength": 0.3},
 ]
 
-# Daniel Kim — Math heavy, strong in linear algebra, weak in CS
 DANIEL_NODES = [
     {"concept_name": "Systems of Linear Equations", "subject": "MA 311", "mastery_score": 0.95},
     {"concept_name": "Matrix Operations",           "subject": "MA 311", "mastery_score": 0.92},
@@ -400,7 +370,6 @@ DANIEL_EDGES = [
     {"source": "Descriptive Statistics",      "target": "Probability Basics",         "strength": 0.6},
 ]
 
-# Elena Vasquez — CS/Stats, strong in CS112, decent stats, weak in calculus
 ELENA_NODES = [
     {"concept_name": "Complexity Analysis",         "subject": "CS 112", "mastery_score": 0.92},
     {"concept_name": "Stacks & Queues",             "subject": "CS 112", "mastery_score": 0.88},
@@ -433,7 +402,6 @@ ELENA_EDGES = [
     {"source": "Systems of Linear Equations", "target": "Matrix Operations","strength": 0.45},
 ]
 
-# Omar Hassan — Math/CS, strong in calculus and linear algebra, building CS
 OMAR_NODES = [
     {"concept_name": "Limits",                      "subject": "MA 121", "mastery_score": 0.93},
     {"concept_name": "Continuity",                  "subject": "MA 121", "mastery_score": 0.90},
@@ -522,17 +490,20 @@ PRIYA_ASSIGNMENTS = [
 
 
 def seed_assignments(user_id: str, assignments: list):
-    conn = get_conn()
-    for a in assignments:
-        conn.execute(
-            "INSERT OR IGNORE INTO assignments "
-            "(id, user_id, title, course_name, due_date, assignment_type, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (str(uuid.uuid4()), user_id, a["title"], a["course_name"],
-             a["due_date"], a["assignment_type"], a.get("notes")),
-        )
-    conn.commit()
-    conn.close()
+    rows = [
+        {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "title": a["title"],
+            "course_name": a["course_name"],
+            "due_date": a["due_date"],
+            "assignment_type": a["assignment_type"],
+            "notes": a.get("notes"),
+        }
+        for a in assignments
+    ]
+    if rows:
+        table("assignments").insert(rows)
     print(f"Assignments seeded for {user_id}.")
 
 
@@ -544,41 +515,42 @@ ROOM_CODE    = "JDX7K2"
 ROOM_MEMBERS = ["user_andres", "user_jack", "user_luke", "user_priya"]
 
 ROOM_ACTIVITY = [
-    {"user": "user_jack",   "type": "mastered",  "concept": "Functions",             "detail": "85%"},
-    {"user": "user_luke",   "type": "mastered",  "concept": "Basic Derivatives",     "detail": "88%"},
-    {"user": "user_andres", "type": "learned",   "concept": "Chain Rule",            "detail": "28%"},
-    {"user": "user_jack",   "type": "quizzed",   "concept": "Recursion",             "detail": "7/10"},
-    {"user": "user_luke",   "type": "streak",    "concept": None,                    "detail": "7-day streak"},
+    {"user": "user_jack",   "type": "mastered",  "concept": "Functions",              "detail": "85%"},
+    {"user": "user_luke",   "type": "mastered",  "concept": "Basic Derivatives",      "detail": "88%"},
+    {"user": "user_andres", "type": "learned",   "concept": "Chain Rule",             "detail": "28%"},
+    {"user": "user_jack",   "type": "quizzed",   "concept": "Recursion",              "detail": "7/10"},
+    {"user": "user_luke",   "type": "streak",    "concept": None,                     "detail": "7-day streak"},
     {"user": "user_andres", "type": "learned",   "concept": "Product & Quotient Rule","detail": "50%"},
-    {"user": "user_priya",  "type": "mastered",  "concept": "Probability Basics",    "detail": "88%"},
-    {"user": "user_priya",  "type": "joined",    "concept": None,                    "detail": "joined the room"},
-    {"user": "user_jack",   "type": "joined",    "concept": None,                    "detail": "joined the room"},
+    {"user": "user_priya",  "type": "mastered",  "concept": "Probability Basics",     "detail": "88%"},
+    {"user": "user_priya",  "type": "joined",    "concept": None,                     "detail": "joined the room"},
+    {"user": "user_jack",   "type": "joined",    "concept": None,                     "detail": "joined the room"},
 ]
 
 
 def seed_room():
-    conn = get_conn()
-    conn.execute(
-        "INSERT OR IGNORE INTO rooms (id, name, invite_code, created_by) VALUES (?, ?, ?, ?)",
-        (ROOM_ID, ROOM_NAME, ROOM_CODE, "user_andres"),
+    table("rooms").upsert(
+        {"id": ROOM_ID, "name": ROOM_NAME, "invite_code": ROOM_CODE, "created_by": "user_andres"},
+        on_conflict="id",
     )
-    for uid in ROOM_MEMBERS:
-        conn.execute(
-            "INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)",
-            (ROOM_ID, uid),
-        )
-    for item in ROOM_ACTIVITY:
-        conn.execute(
-            "INSERT OR IGNORE INTO room_activity "
-            "(id, room_id, user_id, activity_type, concept_name, detail) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (str(uuid.uuid4()), ROOM_ID, item["user"],
-             item["type"], item.get("concept"), item.get("detail")),
-        )
-    for uid in ROOM_MEMBERS:
-        conn.execute("UPDATE users SET room_id = ? WHERE id = ?", (ROOM_ID, uid))
-    conn.commit()
-    conn.close()
+    table("room_members").upsert(
+        [{"room_id": ROOM_ID, "user_id": uid} for uid in ROOM_MEMBERS],
+        on_conflict="room_id,user_id",
+    )
+    table("room_activity").insert([
+        {
+            "id": str(uuid.uuid4()),
+            "room_id": ROOM_ID,
+            "user_id": item["user"],
+            "activity_type": item["type"],
+            "concept_name": item.get("concept"),
+            "detail": item.get("detail"),
+        }
+        for item in ROOM_ACTIVITY
+    ])
+    table("users").update(
+        {"room_id": ROOM_ID},
+        filters={"id": f"in.({','.join(ROOM_MEMBERS)})"},
+    )
     print(f"Room '{ROOM_NAME}' seeded with {len(ROOM_MEMBERS)} members.")
 
 
@@ -601,16 +573,17 @@ USER_COURSES = {
 
 
 def seed_courses():
-    conn = get_conn()
+    rows = []
     for user_id, courses in USER_COURSES.items():
         for course_name in courses:
-            color = COURSE_COLORS.get(course_name)
-            conn.execute(
-                "INSERT OR IGNORE INTO courses (id, user_id, course_name, color) VALUES (?, ?, ?, ?)",
-                (str(uuid.uuid4()), user_id, course_name, color),
-            )
-    conn.commit()
-    conn.close()
+            rows.append({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "course_name": course_name,
+                "color": COURSE_COLORS.get(course_name),
+            })
+    if rows:
+        table("courses").upsert(rows, on_conflict="user_id,course_name")
     print("Courses seeded.")
 
 
@@ -622,21 +595,21 @@ if __name__ == "__main__":
     print("Seeding courses...")
     seed_courses()
     print("Seeding graphs...")
-    seed_graph("user_andres",  JOHN_NODES,  JOHN_EDGES)
-    seed_graph("user_jack",    MARIA_NODES, MARIA_EDGES)
-    seed_graph("user_luke",    ALEX_NODES,  ALEX_EDGES)
-    seed_graph("user_priya",   PRIYA_NODES, PRIYA_EDGES)
-    seed_graph("user_school_1", SOFIA_NODES,   SOFIA_EDGES)
-    seed_graph("user_school_2", MARCUS_NODES,  MARCUS_EDGES)
-    seed_graph("user_school_3", AISHA_NODES,   AISHA_EDGES)
-    seed_graph("user_school_4", DANIEL_NODES,  DANIEL_EDGES)
-    seed_graph("user_school_5", ELENA_NODES,   ELENA_EDGES)
-    seed_graph("user_school_6", OMAR_NODES,    OMAR_EDGES)
+    seed_graph("user_andres",   JOHN_NODES,   JOHN_EDGES)
+    seed_graph("user_jack",     MARIA_NODES,  MARIA_EDGES)
+    seed_graph("user_luke",     ALEX_NODES,   ALEX_EDGES)
+    seed_graph("user_priya",    PRIYA_NODES,  PRIYA_EDGES)
+    seed_graph("user_school_1", SOFIA_NODES,  SOFIA_EDGES)
+    seed_graph("user_school_2", MARCUS_NODES, MARCUS_EDGES)
+    seed_graph("user_school_3", AISHA_NODES,  AISHA_EDGES)
+    seed_graph("user_school_4", DANIEL_NODES, DANIEL_EDGES)
+    seed_graph("user_school_5", ELENA_NODES,  ELENA_EDGES)
+    seed_graph("user_school_6", OMAR_NODES,   OMAR_EDGES)
     print("Seeding assignments...")
-    seed_assignments("user_andres",  JOHN_ASSIGNMENTS)
-    seed_assignments("user_jack",    MARIA_ASSIGNMENTS)
-    seed_assignments("user_luke",    ALEX_ASSIGNMENTS)
-    seed_assignments("user_priya",   PRIYA_ASSIGNMENTS)
+    seed_assignments("user_andres", JOHN_ASSIGNMENTS)
+    seed_assignments("user_jack",   MARIA_ASSIGNMENTS)
+    seed_assignments("user_luke",   ALEX_ASSIGNMENTS)
+    seed_assignments("user_priya",  PRIYA_ASSIGNMENTS)
     print("Seeding room...")
     seed_room()
-    print(f"\nDone! DB: {DATABASE_PATH}")
+    print("\nDone!")

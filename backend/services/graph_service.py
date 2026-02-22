@@ -1,58 +1,37 @@
-import sqlite3
 import uuid
-import os
-import sys
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import DATABASE_PATH, get_mastery_tier
-
-
-def get_conn():
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+from config import get_mastery_tier
+from db.connection import table
 
 
 def get_graph(user_id: str) -> dict:
-    conn = get_conn()
-    nodes_rows = conn.execute(
-        "SELECT * FROM graph_nodes WHERE user_id = ?", (user_id,)
-    ).fetchall()
-    nodes = [dict(r) for r in nodes_rows]
+    nodes = table("graph_nodes").select("*", filters={"user_id": f"eq.{user_id}"})
 
-    edges_rows = conn.execute(
-        "SELECT * FROM graph_edges WHERE user_id = ?", (user_id,)
-    ).fetchall()
-    edges = []
-    for e in edges_rows:
-        ed = dict(e)
-        edges.append({
-            "id": ed["id"],
-            "source": ed["source_node_id"],
-            "target": ed["target_node_id"],
-            "strength": ed["strength"],
-        })
+    edges_raw = table("graph_edges").select("*", filters={"user_id": f"eq.{user_id}"})
+    edges = [
+        {
+            "id": e["id"],
+            "source": e["source_node_id"],
+            "target": e["target_node_id"],
+            "strength": e["strength"],
+        }
+        for e in edges_raw
+    ]
 
-    mastered = sum(1 for n in nodes if n["mastery_tier"] == "mastered")
-    learning = sum(1 for n in nodes if n["mastery_tier"] == "learning")
+    mastered   = sum(1 for n in nodes if n["mastery_tier"] == "mastered")
+    learning   = sum(1 for n in nodes if n["mastery_tier"] == "learning")
     struggling = sum(1 for n in nodes if n["mastery_tier"] == "struggling")
     unexplored = sum(1 for n in nodes if n["mastery_tier"] == "unexplored")
 
-    user = conn.execute("SELECT streak_count FROM users WHERE id = ?", (user_id,)).fetchone()
-    streak = user["streak_count"] if user else 0
+    user_rows = table("users").select("streak_count", filters={"id": f"eq.{user_id}"})
+    streak = user_rows[0]["streak_count"] if user_rows else 0
 
-    # Collect user-defined courses — so courses with no concept nodes still
-    # appear as a large subject-root hub in the graph.
     try:
-        course_rows = conn.execute(
-            "SELECT course_name FROM courses WHERE user_id = ?", (user_id,)
-        ).fetchall()
+        course_rows = table("courses").select("course_name", filters={"user_id": f"eq.{user_id}"})
         user_course_names = {r["course_name"] for r in course_rows}
     except Exception:
         user_course_names = set()
-
-    conn.close()
 
     stats = {
         "total_nodes": len(nodes),
@@ -63,7 +42,6 @@ def get_graph(user_id: str) -> dict:
         "streak": streak,
     }
 
-    # Build synthetic subject root nodes (one hub per subject)
     subject_map: dict = {}
     for n in nodes:
         subj = n.get("subject") or "General"
@@ -93,8 +71,6 @@ def get_graph(user_id: str) -> dict:
                 "strength": 0.7,
             })
 
-    # Add placeholder subject roots for user-defined courses that have no
-    # concept nodes yet — they show up as a large coloured hub in the graph.
     for course_name in user_course_names:
         if course_name not in subject_map:
             subject_nodes.append({
@@ -112,128 +88,121 @@ def get_graph(user_id: str) -> dict:
     return {"nodes": nodes + subject_nodes, "edges": edges + subject_edges, "stats": stats}
 
 
-# ── Course management ─────────────────────────────────────────────────────────
+# ── Course management ──────────────────────────────────────────────────────────
 
 def get_courses(user_id: str) -> list:
-    conn = get_conn()
     try:
-        rows = conn.execute(
-            "SELECT id, course_name, color, created_at FROM courses WHERE user_id = ? ORDER BY created_at ASC",
-            (user_id,),
-        ).fetchall()
+        rows = table("courses").select(
+            "id,course_name,color,created_at",
+            filters={"user_id": f"eq.{user_id}"},
+            order="created_at.asc",
+        )
     except Exception:
-        conn.close()
         return []
     result = []
     for r in rows:
-        node_count = conn.execute(
-            "SELECT COUNT(*) AS cnt FROM graph_nodes WHERE user_id = ? AND subject = ?",
-            (user_id, r["course_name"]),
-        ).fetchone()["cnt"]
+        node_rows = table("graph_nodes").select(
+            "id",
+            filters={"user_id": f"eq.{user_id}", "subject": f"eq.{r['course_name']}"},
+        )
         result.append({
             "id": r["id"],
             "course_name": r["course_name"],
             "color": r["color"],
-            "node_count": node_count,
+            "node_count": len(node_rows),
             "created_at": r["created_at"],
         })
-    conn.close()
     return result
 
 
 def add_course(user_id: str, course_name: str, color: str | None = None) -> dict:
-    conn = get_conn()
-    existing = conn.execute(
-        "SELECT id FROM courses WHERE user_id = ? AND course_name = ?",
-        (user_id, course_name),
-    ).fetchone()
-    if existing:
-        conn.close()
-        return {"course_name": course_name, "already_existed": True}
-    course_id = str(uuid.uuid4())
-    conn.execute(
-        "INSERT INTO courses (id, user_id, course_name, color) VALUES (?, ?, ?, ?)",
-        (course_id, user_id, course_name, color),
+    existing = table("courses").select(
+        "id",
+        filters={"user_id": f"eq.{user_id}", "course_name": f"eq.{course_name}"},
     )
-    conn.commit()
-    conn.close()
+    if existing:
+        return {"course_name": course_name, "already_existed": True}
+    table("courses").insert({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "course_name": course_name,
+        "color": color,
+    })
     return {"course_name": course_name, "already_existed": False}
 
 
 def update_course_color(user_id: str, course_name: str, color: str) -> dict:
-    conn = get_conn()
-    conn.execute(
-        "UPDATE courses SET color = ? WHERE user_id = ? AND course_name = ?",
-        (color, user_id, course_name),
+    table("courses").update(
+        {"color": color},
+        filters={"user_id": f"eq.{user_id}", "course_name": f"eq.{course_name}"},
     )
-    conn.commit()
-    conn.close()
     return {"updated": True}
 
 
 def delete_course(user_id: str, course_name: str) -> dict:
-    conn = get_conn()
-    # Remove all concept nodes for this subject and their edges / quiz context
-    node_rows = conn.execute(
-        "SELECT id FROM graph_nodes WHERE user_id = ? AND subject = ?",
-        (user_id, course_name),
-    ).fetchall()
-    for n in node_rows:
-        conn.execute(
-            "DELETE FROM quiz_context WHERE concept_node_id = ?", (n["id"],)
-        )
-        conn.execute(
-            "DELETE FROM graph_edges WHERE source_node_id = ? OR target_node_id = ?",
-            (n["id"], n["id"]),
-        )
-    conn.execute(
-        "DELETE FROM graph_nodes WHERE user_id = ? AND subject = ?",
-        (user_id, course_name),
+    node_rows = table("graph_nodes").select(
+        "id",
+        filters={"user_id": f"eq.{user_id}", "subject": f"eq.{course_name}"},
     )
-    conn.execute(
-        "DELETE FROM courses WHERE user_id = ? AND course_name = ?",
-        (user_id, course_name),
+    node_ids = [n["id"] for n in node_rows]
+
+    if node_ids:
+        ids_str = ",".join(node_ids)
+        table("quiz_context").delete({"concept_node_id": f"in.({ids_str})"})
+        # Delete edges that touch any of these nodes (source or target)
+        table("graph_edges").delete({"source_node_id": f"in.({ids_str})"})
+        table("graph_edges").delete({"target_node_id": f"in.({ids_str})"})
+        table("graph_nodes").delete(
+            {"user_id": f"eq.{user_id}", "subject": f"eq.{course_name}"}
+        )
+
+    table("courses").delete(
+        {"user_id": f"eq.{user_id}", "course_name": f"eq.{course_name}"}
     )
-    conn.commit()
-    conn.close()
     return {"deleted": True}
 
 
 def apply_graph_update(user_id: str, graph_update: dict) -> list:
     """Apply a graph_update dict to the DB. Returns mastery_changes list."""
     mastery_changes = []
-    conn = get_conn()
 
     for new_node in graph_update.get("new_nodes", []):
         name = new_node.get("concept_name", "")
         subject = new_node.get("subject", "General")
         init_m = float(new_node.get("initial_mastery", 0.0))
-        existing = conn.execute(
-            "SELECT id FROM graph_nodes WHERE user_id = ? AND concept_name = ?",
-            (user_id, name),
-        ).fetchone()
+        existing = table("graph_nodes").select(
+            "id",
+            filters={"user_id": f"eq.{user_id}", "concept_name": f"eq.{name}"},
+        )
         if not existing:
-            nid = str(uuid.uuid4())
-            tier = get_mastery_tier(init_m)
-            conn.execute(
-                "INSERT INTO graph_nodes (id, user_id, concept_name, mastery_score, mastery_tier, subject) VALUES (?, ?, ?, ?, ?, ?)",
-                (nid, user_id, name, init_m, tier, subject),
-            )
+            table("graph_nodes").insert({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "concept_name": name,
+                "mastery_score": init_m,
+                "mastery_tier": get_mastery_tier(init_m),
+                "subject": subject,
+            })
 
     for upd in graph_update.get("updated_nodes", []):
         name = upd.get("concept_name", "")
         delta = float(upd.get("mastery_delta", 0.0))
-        row = conn.execute(
-            "SELECT id, mastery_score FROM graph_nodes WHERE user_id = ? AND concept_name = ?",
-            (user_id, name),
-        ).fetchone()
-        if row:
+        rows = table("graph_nodes").select(
+            "id,mastery_score,times_studied",
+            filters={"user_id": f"eq.{user_id}", "concept_name": f"eq.{name}"},
+        )
+        if rows:
+            row = rows[0]
             before = row["mastery_score"]
             after = max(0.0, min(1.0, before + delta))
-            new_tier = get_mastery_tier(after)
-            conn.execute(
-                "UPDATE graph_nodes SET mastery_score = ?, mastery_tier = ?, times_studied = times_studied + 1, last_studied_at = ? WHERE id = ?",
-                (after, new_tier, datetime.utcnow().isoformat(), row["id"]),
+            table("graph_nodes").update(
+                {
+                    "mastery_score": after,
+                    "mastery_tier": get_mastery_tier(after),
+                    "times_studied": row["times_studied"] + 1,
+                    "last_studied_at": datetime.utcnow().isoformat(),
+                },
+                filters={"id": f"eq.{row['id']}"},
             )
             mastery_changes.append({"concept": name, "before": before, "after": after})
 
@@ -241,36 +210,45 @@ def apply_graph_update(user_id: str, graph_update: dict) -> list:
         src_name = new_edge.get("source", "")
         tgt_name = new_edge.get("target", "")
         strength = float(new_edge.get("strength", 0.5))
-        src = conn.execute(
-            "SELECT id FROM graph_nodes WHERE user_id = ? AND concept_name = ?", (user_id, src_name)
-        ).fetchone()
-        tgt = conn.execute(
-            "SELECT id FROM graph_nodes WHERE user_id = ? AND concept_name = ?", (user_id, tgt_name)
-        ).fetchone()
-        if src and tgt:
-            existing_edge = conn.execute(
-                "SELECT id FROM graph_edges WHERE user_id = ? AND source_node_id = ? AND target_node_id = ?",
-                (user_id, src["id"], tgt["id"]),
-            ).fetchone()
+        src_rows = table("graph_nodes").select(
+            "id", filters={"user_id": f"eq.{user_id}", "concept_name": f"eq.{src_name}"}
+        )
+        tgt_rows = table("graph_nodes").select(
+            "id", filters={"user_id": f"eq.{user_id}", "concept_name": f"eq.{tgt_name}"}
+        )
+        if src_rows and tgt_rows:
+            src_id = src_rows[0]["id"]
+            tgt_id = tgt_rows[0]["id"]
+            existing_edge = table("graph_edges").select(
+                "id",
+                filters={
+                    "user_id": f"eq.{user_id}",
+                    "source_node_id": f"eq.{src_id}",
+                    "target_node_id": f"eq.{tgt_id}",
+                },
+            )
             if not existing_edge:
-                eid = str(uuid.uuid4())
-                conn.execute(
-                    "INSERT INTO graph_edges (id, user_id, source_node_id, target_node_id, strength) VALUES (?, ?, ?, ?, ?)",
-                    (eid, user_id, src["id"], tgt["id"], strength),
-                )
+                table("graph_edges").insert({
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "source_node_id": src_id,
+                    "target_node_id": tgt_id,
+                    "strength": strength,
+                })
 
-    conn.commit()
-    conn.close()
     return mastery_changes
 
 
 def get_recommendations(user_id: str) -> list:
-    conn = get_conn()
-    rows = conn.execute(
-        "SELECT concept_name, mastery_score, mastery_tier FROM graph_nodes WHERE user_id = ? AND mastery_tier IN ('struggling', 'learning', 'unexplored') ORDER BY mastery_score ASC LIMIT 5",
-        (user_id,),
-    ).fetchall()
-    conn.close()
+    rows = table("graph_nodes").select(
+        "concept_name,mastery_score,mastery_tier",
+        filters={
+            "user_id": f"eq.{user_id}",
+            "mastery_tier": "in.(struggling,learning,unexplored)",
+        },
+        order="mastery_score.asc",
+        limit=5,
+    )
     recs = []
     for r in rows:
         tier = r["mastery_tier"]
