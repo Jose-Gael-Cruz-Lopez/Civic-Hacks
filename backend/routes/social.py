@@ -92,7 +92,6 @@ def room_overview(room_id: str, viewer_id: str = Query("user_john")):
     for m in members_rows:
         members.append({"user_id": m["id"], "name": m["name"], "graph": get_graph(m["id"])})
 
-    # Build the mastery snapshot used both for caching and for the Gemini prompt
     member_summaries = []
     for m in members:
         nodes = m["graph"]["nodes"]
@@ -100,7 +99,6 @@ def room_overview(room_id: str, viewer_id: str = Query("user_john")):
         struggling = [n["concept_name"] for n in nodes if n["mastery_tier"] == "struggling"]
         member_summaries.append(f"{m['name']}: mastered {mastered}, struggling with {struggling}")
 
-    # Return cached summary if member mastery hasn't changed
     ai_summary = get_cached_summary(room_id, member_summaries)
     if ai_summary is None:
         try:
@@ -158,4 +156,65 @@ def match_partners(room_id: str, body: MatchBody):
         matches = find_study_matches(body.user_id, members_with_graphs)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Gemini error: {e}")
+    return {"matches": matches}
+
+
+@router.post("/school-match")
+def school_match(body: MatchBody):
+    """
+    Match the requesting user against all users in the database who are NOT
+    in any of their study rooms. These are the 'school-wide' pool.
+    """
+    conn = get_conn()
+
+    # Find all room IDs the requesting user belongs to
+    user_room_ids = [
+        row["room_id"]
+        for row in conn.execute(
+            "SELECT room_id FROM room_members WHERE user_id = ?", (body.user_id,)
+        ).fetchall()
+    ]
+
+    # Fetch every user except the requester and anyone sharing a room with them
+    if user_room_ids:
+        placeholders = ",".join("?" * len(user_room_ids))
+        excluded_ids = [
+            row["user_id"]
+            for row in conn.execute(
+                f"SELECT DISTINCT user_id FROM room_members WHERE room_id IN ({placeholders})",
+                user_room_ids,
+            ).fetchall()
+        ]
+    else:
+        excluded_ids = [body.user_id]
+
+    if body.user_id not in excluded_ids:
+        excluded_ids.append(body.user_id)
+
+    placeholders = ",".join("?" * len(excluded_ids))
+    school_users = conn.execute(
+        f"SELECT id, name FROM users WHERE id NOT IN ({placeholders})",
+        excluded_ids,
+    ).fetchall()
+    conn.close()
+
+    members_with_graphs = [
+        {"user_id": u["id"], "name": u["name"], "graph": get_graph(u["id"])}
+        for u in school_users
+    ]
+
+    # Include the requesting user's graph so matching_service can compare
+    requester_graph = get_graph(body.user_id)
+    requester_name_row = get_conn().execute(
+        "SELECT name FROM users WHERE id = ?", (body.user_id,)
+    ).fetchone()
+    requester_name = requester_name_row["name"] if requester_name_row else body.user_id
+
+    all_members = [{"user_id": body.user_id, "name": requester_name, "graph": requester_graph}] + members_with_graphs
+
+    try:
+        matches = find_study_matches(body.user_id, all_members)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Matching error: {e}")
+
     return {"matches": matches}
