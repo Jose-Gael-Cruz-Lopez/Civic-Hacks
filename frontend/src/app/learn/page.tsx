@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import ChatPanel from '@/components/ChatPanel';
@@ -20,6 +20,7 @@ function LearnInner() {
   const router = useRouter();
   const topicParam = searchParams.get('topic') ?? '';
   const modeParam = searchParams.get('mode') ?? 'socratic';
+  const suggestConcept = searchParams.get('suggest') ?? '';
   const initialQuiz = modeParam === 'quiz';
 
   const [mode, setMode] = useState<TeachingMode>(
@@ -42,6 +43,25 @@ function LearnInner() {
   const [recentSessions, setRecentSessions] = useState<{ id: string; topic: string; mode: string; started_at: string; is_active: boolean }[]>([]);
 
   const courses = [...new Set(nodes.map(n => n.subject).filter(Boolean))].sort();
+
+  // Node matching the Navbar "learn next" suggestion
+  const suggestNode = useMemo(
+    () => (suggestConcept ? nodes.find(n => n.concept_name === suggestConcept) ?? null : null),
+    [nodes, suggestConcept]
+  );
+
+  // Strip edges that cross subject boundaries so CS101 and CS112 stay separate
+  const filteredEdges = useMemo(() => {
+    const nodeSubjectMap = new Map(nodes.map(n => [n.id, n.subject]));
+    return edges.filter(e => {
+      const srcId = e.source as string;
+      const tgtId = e.target as string;
+      if (srcId.startsWith('subject_root__') || tgtId.startsWith('subject_root__')) return true;
+      const srcSubj = nodeSubjectMap.get(srcId);
+      const tgtSubj = nodeSubjectMap.get(tgtId);
+      return !srcSubj || !tgtSubj || srcSubj === tgtSubj;
+    });
+  }, [nodes, edges]);
 
   // Load initial graph + recent sessions — re-runs when the active user changes
   useEffect(() => {
@@ -178,10 +198,17 @@ function LearnInner() {
 
   const topicNode = nodes.find(n => n.concept_name.toLowerCase() === topic.toLowerCase());
 
+  // Pre-select the suggested/topic concept when the quiz panel opens
+  const quizPreselectId = useMemo(() => {
+    const concept = suggestConcept || topicParam;
+    if (!concept) return '';
+    return nodes.find(n => n.concept_name.toLowerCase() === concept.toLowerCase())?.id ?? '';
+  }, [nodes, suggestConcept, topicParam]);
+
   return (
     <div style={{ height: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
-      <div style={{
+      <div className="panel-in panel-in-1" style={{
         background: '#f0f5f0',
         borderBottom: '1px solid rgba(107,114,128,0.12)',
         padding: '0 20px',
@@ -245,7 +272,7 @@ function LearnInner() {
       </div>
 
       {/* Main split */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className="panel-in panel-in-2" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div style={{ flex: 1, borderRight: '1px solid rgba(107,114,128,0.12)', overflow: 'hidden' }}>
           {quizMode ? (
             <div style={{ height: '100%', overflow: 'hidden' }}>
@@ -253,6 +280,7 @@ function LearnInner() {
                 nodes={nodes}
                 userId={USER_ID}
                 selectedCourse={selectedCourse}
+                preselectedNodeId={quizPreselectId}
                 onLearnConcept={concept => {
                   setQuizMode(false);
                   if (concept) { setTopic(concept); beginSession(concept, mode); }
@@ -275,12 +303,12 @@ function LearnInner() {
           <div ref={graphContainerRef} style={{ flex: 1 }}>
             <KnowledgeGraph
               nodes={nodes}
-              edges={edges}
+              edges={filteredEdges}
               width={graphDimensions.width}
               height={graphDimensions.height}
               animate
               interactive
-              highlightId={topicNode?.id}
+              highlightId={suggestNode?.id ?? topicNode?.id}
               onNodeClick={n => { setTopic(n.concept_name); beginSession(n.concept_name, mode); }}
             />
           </div>
@@ -289,6 +317,61 @@ function LearnInner() {
               View Full Tree
             </Link>
           </div>
+
+          {/* AI "learn next" suggestion popup */}
+          {suggestConcept && suggestNode && (
+            <div className="panel-in-centered panel-in-1" style={{
+              position: 'absolute',
+              bottom: '44px',
+              left: '50%',
+              background: '#ffffff',
+              border: '1px solid rgba(26,92,42,0.25)',
+              borderRadius: '10px',
+              padding: '14px 18px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              minWidth: '300px',
+              maxWidth: '400px',
+              fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>✨</span>
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
+                    AI Recommendation
+                  </p>
+                  <p style={{ fontSize: '15px', fontWeight: 600, color: '#111827', margin: 0 }}>
+                    {suggestConcept}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    This concept will have the highest impact on your mastery.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete('suggest');
+                    const q = params.toString();
+                    router.replace(q ? `/learn?${q}` : '/learn');
+                  }}
+                  style={{ padding: '6px 14px', background: 'transparent', color: '#6b7280', border: '1px solid rgba(107,114,128,0.22)', borderRadius: '6px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Dismiss
+                </button>
+                <button
+                  onClick={() => router.push(`/learn?topic=${encodeURIComponent(suggestConcept)}&mode=quiz`)}
+                  style={{ padding: '6px 16px', background: '#1a5c2a', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Start Quiz →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

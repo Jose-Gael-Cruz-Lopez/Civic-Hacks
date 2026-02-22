@@ -351,9 +351,35 @@ input, select, textarea { color-scheme: light; }
 /* ── Hide scrollbar while keeping scroll ────────────────────────── */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+/* ── Panel fly-in (page load) ──────────────────────────────────── */
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes panel-in-centered {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.panel-in          { animation: panel-in          0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.panel-in-centered { animation: panel-in-centered 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
+.panel-in-1 { animation-delay:   0ms; }
+.panel-in-2 { animation-delay:  80ms; }
+.panel-in-3 { animation-delay: 160ms; }
+.panel-in-4 { animation-delay: 240ms; }
+
+/* ── Highlight-node pulse ring ──────────────────────────────────── */
+@keyframes pulse-ring {
+  0%, 100% { opacity: 0.75; }
+  50%       { opacity: 0.15; }
+}
+.highlight-ring { animation: pulse-ring 1.6s ease-in-out infinite; }
 
 /* ── Navbar link hover ───────────────────────────────────────────── */
 .nav-link:hover {
   background: rgba(26, 92, 42, 0.10) !important;
   color: #1a5c2a !important;
 }
+

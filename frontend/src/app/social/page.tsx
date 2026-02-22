@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import RoomList from '@/components/RoomList';
 import RoomOverview from '@/components/RoomOverview';
 import StudyMatch from '@/components/StudyMatch';
@@ -10,8 +11,12 @@ import { useUser } from '@/context/UserContext';
 
 type Tab = 'overview' | 'match' | 'activity';
 
-export default function SocialPage() {
+function SocialPageInner() {
   const { userId: USER_ID, userReady } = useUser();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const suggestConcept = searchParams.get('suggest') ?? '';
+
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
@@ -21,6 +26,11 @@ export default function SocialPage() {
   const [matches, setMatches] = useState<StudyMatchType[]>([]);
   const [matchLoading, setMatchLoading] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(false);
+
+  // Auto-switch to overview tab when a suggestion is present
+  useEffect(() => {
+    if (suggestConcept) setTab('overview');
+  }, [suggestConcept]);
 
   useEffect(() => {
     if (!userReady) return;
@@ -84,10 +94,16 @@ export default function SocialPage() {
     marginRight: '20px',
   });
 
+  // Find the suggested node ID from the current user's graph in overviewData
+  const myMemberData = overviewData?.members?.find((m: any) => m.user_id === USER_ID);
+  const suggestNodeId: string | undefined = suggestConcept && myMemberData
+    ? myMemberData.graph.nodes.find((n: any) => n.concept_name === suggestConcept)?.id
+    : undefined;
+
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 48px)' }}>
       {/* Left sidebar */}
-      <div style={{ width: '240px', background: '#f2f7f2', borderRight: '1px solid rgba(107,114,128,0.12)', overflowY: 'auto' }}>
+      <div className="panel-in panel-in-1" style={{ width: '240px', background: '#f2f7f2', borderRight: '1px solid rgba(107,114,128,0.12)', overflowY: 'auto' }}>
         <RoomList
           rooms={rooms}
           activeRoomId={activeRoomId}
@@ -98,7 +114,7 @@ export default function SocialPage() {
       </div>
 
       {/* Main area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="panel-in panel-in-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {activeRoomId ? (
           <>
             {/* Tabs */}
@@ -119,6 +135,10 @@ export default function SocialPage() {
                     members={overviewData.members}
                     aiSummary={overviewData.ai_summary}
                     myUserId={USER_ID}
+                    suggestNodeId={suggestNodeId}
+                    suggestConcept={suggestConcept}
+                    onSuggestDismiss={() => router.replace('/social')}
+                    onSuggestAccept={() => router.push(`/learn?topic=${encodeURIComponent(suggestConcept)}&mode=quiz`)}
                   />
                 ) : null
               )}
@@ -162,5 +182,13 @@ export default function SocialPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SocialPage() {
+  return (
+    <Suspense fallback={null}>
+      <SocialPageInner />
+    </Suspense>
   );
 }

@@ -130,6 +130,21 @@ function KnowledgeGraph({
 
     simRef.current = sim;
 
+    // ── Drift animation setup ───────────────────────────────────────────────
+    // driftOffset is added on top of sim positions at render time — never mutates n.x/n.y
+    let rafId = 0;
+    let draggingId: string | null = null;
+    const driftOffset = new Map<string, { dx: number; dy: number }>(
+      simNodes.map(n => [n.id, { dx: 0, dy: 0 }])
+    );
+    const driftParams = new Map(simNodes.map(n => [n.id, {
+      phaseX: Math.random() * Math.PI * 2,
+      phaseY: Math.random() * Math.PI * 2,
+      freqX:  0.00040 + Math.random() * 0.00030,
+      freqY:  0.00032 + Math.random() * 0.00028,
+      amp:    7 + Math.random() * 7,
+    }]));
+
     // ── Edges ──────────────────────────────────────────────────────────────
     const linkGroup = container.append('g').attr('class', 'links');
     const linkSel = linkGroup
@@ -176,17 +191,6 @@ function KnowledgeGraph({
           .attr('stroke-width', 2);
       }
     });
-
-    // Pulse ring for highlighted node
-    if (highlightId) {
-      nodeSel.filter(d => d.id === highlightId)
-        .append('circle')
-        .attr('r', d => getSimRadius(d) + 8)
-        .attr('fill', 'none')
-        .attr('stroke', 'rgba(26,92,42,0.5)')
-        .attr('stroke-width', 1.5)
-        .attr('opacity', 0.8);
-    }
 
     // ── Main orb — matte flat colour by course, opacity = mastery ──────────
     const circles = nodeSel.append('circle')
@@ -284,31 +288,73 @@ function KnowledgeGraph({
       nodeSel.call(
         d3.drag<SVGGElement, SimNode>()
           .on('start', (event, d) => {
+            draggingId = d.id;
             if (!event.active) sim.alphaTarget(0.3).restart();
             d.fx = d.x; d.fy = d.y;
           })
           .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
           .on('end', (event, d) => {
+            draggingId = null;
             if (!event.active) sim.alphaTarget(0);
             d.fx = null; d.fy = null;
           })
       );
     }
 
-    // Tick
-    sim.on('tick', () => {
+    // Shared render: sim positions + drift offsets applied together
+    const render = () => {
       linkSel
-        .attr('x1', d => (d.source as SimNode).x ?? 0)
-        .attr('y1', d => (d.source as SimNode).y ?? 0)
-        .attr('x2', d => (d.target as SimNode).x ?? 0)
-        .attr('y2', d => (d.target as SimNode).y ?? 0);
-      nodeSel.attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`);
-    });
+        .attr('x1', d => ((d.source as SimNode).x ?? 0) + (driftOffset.get((d.source as SimNode).id)?.dx ?? 0))
+        .attr('y1', d => ((d.source as SimNode).y ?? 0) + (driftOffset.get((d.source as SimNode).id)?.dy ?? 0))
+        .attr('x2', d => ((d.target as SimNode).x ?? 0) + (driftOffset.get((d.target as SimNode).id)?.dx ?? 0))
+        .attr('y2', d => ((d.target as SimNode).y ?? 0) + (driftOffset.get((d.target as SimNode).id)?.dy ?? 0));
+      nodeSel.attr('transform', d => {
+        const o = driftOffset.get(d.id) ?? { dx: 0, dy: 0 };
+        return `translate(${(d.x ?? 0) + o.dx},${(d.y ?? 0) + o.dy})`;
+      });
+    };
+
+    // Drive render from sim ticks (fast, during layout phase)
+    sim.on('tick', render);
+
+    // RAF loop starts immediately — drift begins as soon as nodes appear
+    const driftTick = (t: number) => {
+      driftParams.forEach((p, id) => {
+        const o = driftOffset.get(id)!;
+        if (id === draggingId) { o.dx = 0; o.dy = 0; return; }
+        o.dx = Math.sin(t * p.freqX + p.phaseX) * p.amp;
+        o.dy = Math.cos(t * p.freqY + p.phaseY) * p.amp;
+      });
+      render();
+      rafId = requestAnimationFrame(driftTick);
+    };
+    rafId = requestAnimationFrame(driftTick);
 
     prevNodesRef.current = nodes;
     prevEdgesRef.current = edges;
-    return () => { sim.stop(); };
-  }, [nodes, edges, width, height, animate, highlightId, interactive, onNodeClick, getComparisonOutlineColor, courseColorMap]);
+    return () => {
+      sim.stop();
+      cancelAnimationFrame(rafId);
+    };
+  }, [nodes, edges, width, height, animate, interactive, onNodeClick, getComparisonOutlineColor, courseColorMap]);
+
+  // Separate lightweight effect: only add/remove the highlight ring.
+  // Runs independently so changing highlightId never restarts the simulation.
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('.highlight-ring').remove();
+    if (highlightId) {
+      svg.selectAll<SVGGElement, SimNode>('.node')
+        .filter(d => d.id === highlightId)
+        .insert('circle', '.main-circle')
+        .attr('class', 'highlight-ring')
+        .attr('r', d => getSimRadius(d) + 8)
+        .attr('fill', 'none')
+        .attr('stroke', 'rgba(26,92,42,0.55)')
+        .attr('stroke-width', 2);
+    }
+  }, [highlightId]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height }}>

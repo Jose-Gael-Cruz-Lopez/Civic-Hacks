@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GraphNode, QuizQuestion, QuizResult } from '@/lib/types';
 import { generateQuiz, submitQuiz } from '@/lib/api';
 import CustomSelect from '@/components/CustomSelect';
@@ -10,16 +10,19 @@ interface Props {
   userId: string;
   selectedCourse?: string;
   onLearnConcept?: (concept: string) => void;
+  preselectedNodeId?: string;
 }
 
 type Phase = 'select' | 'active' | 'review' | 'results';
 
-export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcept }: Props) {
-  const courseNodes = selectedCourse
-    ? nodes.filter(n => n.subject === selectedCourse && !n.is_subject_root)
-    : [];
+export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcept, preselectedNodeId }: Props) {
+  const preselectedNode = preselectedNodeId ? nodes.find(n => n.id === preselectedNodeId) : undefined;
+  const subjectFilter = selectedCourse || preselectedNode?.subject || '';
+  const courseNodes = subjectFilter
+    ? nodes.filter(n => n.subject === subjectFilter && !n.is_subject_root)
+    : nodes.filter(n => !n.is_subject_root);
   const [phase, setPhase] = useState<Phase>('select');
-  const [selectedNodeId, setSelectedNodeId] = useState('');
+  const [selectedNodeId, setSelectedNodeId] = useState(preselectedNodeId ?? '');
   const [numQuestions, setNumQuestions] = useState(5);
   const [difficulty, setDifficulty] = useState('medium');
 
@@ -33,6 +36,12 @@ export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcep
   const [results, setResults] = useState<{ score: number; total: number; mastery_before: number; mastery_after: number; results: QuizResult[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (preselectedNodeId) {
+      setSelectedNodeId(preselectedNodeId);
+    }
+  }, [preselectedNodeId]);
 
   const startQuiz = async () => {
     if (!selectedNodeId) return;
@@ -111,7 +120,7 @@ export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcep
         <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 12px' }}>
           <p className="label" style={{ marginBottom: '8px' }}>Select Concept</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {!selectedCourse ? (
+            {!subjectFilter ? (
               <p style={{ fontSize: '13px', color: 'var(--text-dim)', padding: '8px 2px' }}>Select a course first</p>
             ) : courseNodes.map(n => {
               const sel = selectedNodeId === n.id;

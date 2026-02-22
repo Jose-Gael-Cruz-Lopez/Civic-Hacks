@@ -1,9 +1,11 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/context/UserContext';
 import CustomSelect from '@/components/CustomSelect';
+import { getRecommendations } from '@/lib/api';
 
 const LINKS = [
   { href: '/', label: 'Dashboard' },
@@ -15,7 +17,30 @@ const LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { userId, userName, users, setActiveUser } = useUser();
+  const [suggesting, setSuggesting] = useState(false);
+  const [, startTransition] = useTransition();
+
+  const handleSuggest = async () => {
+    setSuggesting(true);
+    try {
+      const res = await getRecommendations(userId);
+      const top = res.recommendations[0];
+      if (top) {
+        const encoded = encodeURIComponent(top.concept_name);
+        // Calendar has no graph — redirect to Learn; all other pages stay in place
+        const base = pathname === '/calendar' ? '/learn' : pathname;
+        startTransition(() => {
+          router.push(`${base}?suggest=${encoded}`);
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSuggesting(false);
+    }
+  };
 
   return (
     <nav
@@ -76,7 +101,30 @@ export default function Navbar() {
         })}
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={handleSuggest}
+          disabled={suggesting}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 13px',
+            background: 'rgba(26,92,42,0.08)',
+            color: '#1a5c2a',
+            border: '1px solid rgba(26,92,42,0.22)',
+            borderRadius: '6px',
+            fontSize: '12px',
+            fontWeight: 500,
+            fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+            cursor: suggesting ? 'default' : 'pointer',
+            opacity: suggesting ? 0.5 : 1,
+            transition: 'opacity 0.15s',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          What should I study next?
+        </button>
         <CustomSelect
           value={userId}
           onChange={val => {

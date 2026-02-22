@@ -3,15 +3,20 @@
 import { useState } from 'react';
 import KnowledgeGraph from './KnowledgeGraph';
 import { RoomMember } from '@/lib/types';
+import { filterCrossSubjectEdges } from '@/lib/graphUtils';
 
 interface Props {
   room: { name: string; invite_code: string };
   members: RoomMember[];
   aiSummary: string;
   myUserId: string;
+  suggestNodeId?: string;
+  suggestConcept?: string;
+  onSuggestDismiss?: () => void;
+  onSuggestAccept?: () => void;
 }
 
-export default function RoomOverview({ room, members, aiSummary, myUserId }: Props) {
+export default function RoomOverview({ room, members, aiSummary, myUserId, suggestNodeId, suggestConcept, onSuggestDismiss, onSuggestAccept }: Props) {
   const [copied, setCopied] = useState(false);
   const [compareWith, setCompareWith] = useState<string>('');
 
@@ -71,16 +76,17 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
 
       {/* Graphs side-by-side */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-        <div>
+        <div style={{ position: 'relative' }}>
           <p style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-dim)', marginBottom: '8px' }}>Your Tree</p>
           <div className="panel" style={{ overflow: 'hidden' }}>
             {myMember ? (
               <KnowledgeGraph
                 nodes={myMember.graph.nodes}
-                edges={myMember.graph.edges}
+                edges={filterCrossSubjectEdges(myMember.graph.nodes, myMember.graph.edges)}
                 width={440}
                 height={380}
                 interactive={true}
+                highlightId={suggestNodeId}
                 comparison={partnerMember ? { partnerNodes: partnerMember.graph.nodes } : undefined}
               />
             ) : (
@@ -89,6 +95,56 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
               </div>
             )}
           </div>
+
+          {/* AI "learn next" suggestion popup */}
+          {suggestConcept && suggestNodeId && (
+            <div className="panel-in-centered panel-in-1" style={{
+              position: 'absolute',
+              bottom: '12px',
+              left: '50%',
+              background: '#ffffff',
+              border: '1px solid rgba(26,92,42,0.25)',
+              borderRadius: '10px',
+              padding: '14px 18px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              minWidth: '260px',
+              maxWidth: '360px',
+              fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>✨</span>
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
+                    AI Recommendation
+                  </p>
+                  <p style={{ fontSize: '15px', fontWeight: 600, color: '#111827', margin: 0 }}>
+                    {suggestConcept}
+                  </p>
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    This concept will have the highest impact on your mastery.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={onSuggestDismiss}
+                  style={{ padding: '6px 14px', background: 'transparent', color: '#6b7280', border: '1px solid rgba(107,114,128,0.22)', borderRadius: '6px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Dismiss
+                </button>
+                <button
+                  onClick={onSuggestAccept}
+                  style={{ padding: '6px 16px', background: '#1a5c2a', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  Start Quiz →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -110,7 +166,7 @@ export default function RoomOverview({ room, members, aiSummary, myUserId }: Pro
             {partnerMember ? (
               <KnowledgeGraph
                 nodes={partnerMember.graph.nodes}
-                edges={partnerMember.graph.edges}
+                edges={filterCrossSubjectEdges(partnerMember.graph.nodes, partnerMember.graph.edges)}
                 width={440}
                 height={380}
                 interactive={true}

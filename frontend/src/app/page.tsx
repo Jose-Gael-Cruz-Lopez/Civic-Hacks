@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, useMemo, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
@@ -49,9 +49,13 @@ function getTimeGreeting(): string {
   return 'Good Evening';
 }
 
-export default function Dashboard() {
+function DashboardInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId, userName, userReady } = useUser();
+
+  // Suggested concept from Navbar "What should I learn next?" button
+  const suggestConcept = searchParams.get('suggest') ?? '';
   const containerRef = useRef<HTMLDivElement>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 600, height: 400 });
 
@@ -166,6 +170,12 @@ export default function Dashboard() {
       return !srcSubj || !tgtSubj || srcSubj === tgtSubj;
     });
   }, [nodes, edges]);
+
+  // Node matching the Navbar's "learn next" suggestion
+  const suggestNode = useMemo(
+    () => (suggestConcept ? nodes.find(n => n.concept_name === suggestConcept) ?? null : null),
+    [nodes, suggestConcept]
+  );
 
   useEffect(() => {
     if (!userReady) return; // wait until localStorage user is resolved
@@ -372,7 +382,7 @@ export default function Dashboard() {
 
         {/* ── Left panel: Course list ─────────────────────────────────────── */}
         <div
-          className="dash-scroll"
+          className="dash-scroll panel-in panel-in-1"
           style={{
             width: '300px',
             flexShrink: 0,
@@ -543,7 +553,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Center: Greeting + Graph + Upcoming ────────────────────────── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: '14px', minWidth: 0 }}>
+        <div className="panel-in panel-in-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: '14px', minWidth: 0 }}>
 
           {/* Header: Typed Greeting + Quote + Action Buttons */}
           <div style={{ textAlign: 'center', paddingTop: '14px', paddingBottom: '10px' }}>
@@ -664,9 +674,81 @@ export default function Dashboard() {
                 width={graphDimensions.width}
                 height={graphDimensions.height}
                 interactive
+                highlightId={suggestNode?.id}
                 onNodeClick={handleNodeClick}
                 courseColorMap={courseColorMap}
               />
+            )}
+
+            {/* AI "learn next" suggestion popup */}
+            {suggestConcept && suggestNode && (
+              <div className="panel-in panel-in-1" style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: '#ffffff',
+                border: '1px solid rgba(26,92,42,0.25)',
+                borderRadius: '10px',
+                padding: '14px 18px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                zIndex: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                minWidth: '300px',
+                maxWidth: '420px',
+                fontFamily: UI_FONT,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>✨</span>
+                  <div>
+                    <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
+                      AI Recommendation
+                    </p>
+                    <p style={{ fontSize: '15px', fontWeight: 600, color: '#111827', margin: 0 }}>
+                      {suggestConcept}
+                    </p>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0', lineHeight: 1.5 }}>
+                      Based on your knowledge graph, this concept will have the highest impact on your mastery.
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => router.replace('/')}
+                    style={{
+                      padding: '6px 14px',
+                      background: 'transparent',
+                      color: '#6b7280',
+                      border: '1px solid rgba(107,114,128,0.22)',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                  <button
+                    onClick={() => router.push(`/learn?topic=${encodeURIComponent(suggestConcept)}&mode=quiz`)}
+                    style={{
+                      padding: '6px 16px',
+                      background: '#1a5c2a',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    Start Quiz →
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -704,7 +786,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Right: Sidebar ──────────────────────────────────────────────── */}
-        <div className="dash-scroll" style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px 20px 20px 10px', overflowY: 'auto', fontFamily: UI_FONT }}>
+        <div className="dash-scroll panel-in panel-in-3" style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '14px', padding: '20px 20px 20px 10px', overflowY: 'auto', fontFamily: UI_FONT }}>
 
           {/* User header + streak */}
           <div style={{ ...GLASS, padding: '16px' }}>
@@ -1225,5 +1307,13 @@ export default function Dashboard() {
         </div>
       )}
     </>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={null}>
+      <DashboardInner />
+    </Suspense>
   );
 }

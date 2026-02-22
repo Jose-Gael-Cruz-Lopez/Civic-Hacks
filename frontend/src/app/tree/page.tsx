@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import { GraphNode, GraphEdge } from '@/lib/types';
 import { getGraph } from '@/lib/api';
@@ -15,8 +15,9 @@ const GLASS = {
   border: '1px solid rgba(107, 114, 128, 0.15)',
 } as const;
 
-export default function TreePage() {
+function TreePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userId, userReady } = useUser();
   const [allNodes, setAllNodes] = useState<GraphNode[]>([]);
   const [allEdges, setAllEdges] = useState<GraphEdge[]>([]);
@@ -25,6 +26,8 @@ export default function TreePage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dimensions, setDimensions] = useState({ width: 1200, height: 700 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const suggestConcept = searchParams.get('suggest') ?? '';
 
   useEffect(() => {
     if (!userReady) return;
@@ -41,6 +44,11 @@ export default function TreePage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const suggestNode = useMemo(
+    () => (suggestConcept ? allNodes.find(n => n.concept_name === suggestConcept) ?? null : null),
+    [allNodes, suggestConcept]
+  );
+
   const filteredNodes = allNodes.filter(n => {
     const matchesFilter = filter === 'all' || n.mastery_tier === filter;
     const matchesSearch = !search || n.concept_name.toLowerCase().includes(search.toLowerCase());
@@ -48,9 +56,16 @@ export default function TreePage() {
   });
 
   const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
-  const filteredEdges = allEdges.filter(e =>
-    filteredNodeIds.has(e.source as string) && filteredNodeIds.has(e.target as string)
-  );
+  const nodeSubjectMap = new Map(allNodes.map(n => [n.id, n.subject]));
+  const filteredEdges = allEdges.filter(e => {
+    const srcId = e.source as string;
+    const tgtId = e.target as string;
+    if (!filteredNodeIds.has(srcId) || !filteredNodeIds.has(tgtId)) return false;
+    if (srcId.startsWith('subject_root__') || tgtId.startsWith('subject_root__')) return true;
+    const srcSubj = nodeSubjectMap.get(srcId);
+    const tgtSubj = nodeSubjectMap.get(tgtId);
+    return !srcSubj || !tgtSubj || srcSubj === tgtSubj;
+  });
 
   const FILTERS: { value: Filter; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -68,15 +83,15 @@ export default function TreePage() {
         width={dimensions.width}
         height={dimensions.height}
         interactive
+        highlightId={suggestNode?.id}
         onNodeClick={setSelectedNode}
       />
 
       {/* Floating search + filter bar */}
-      <div style={{
+      <div className="panel-in-centered panel-in-1" style={{
         position: 'absolute',
         top: '20px',
         left: '50%',
-        transform: 'translateX(-50%)',
         ...GLASS,
         borderRadius: '10px',
         padding: '10px 16px',
@@ -127,9 +142,59 @@ export default function TreePage() {
         <span style={{ fontSize: '12px', color: '#9ca3af' }}>{filteredNodes.length} nodes</span>
       </div>
 
+      {/* AI "learn next" suggestion popup */}
+      {suggestConcept && suggestNode && (
+        <div className="panel-in-centered panel-in-1" style={{
+          position: 'absolute',
+          bottom: '24px',
+          left: '50%',
+          ...GLASS,
+          border: '1px solid rgba(26,92,42,0.25)',
+          borderRadius: '10px',
+          padding: '14px 18px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          zIndex: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          minWidth: '300px',
+          maxWidth: '400px',
+          fontFamily: "var(--font-dm-sans), 'DM Sans', sans-serif",
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>✨</span>
+            <div>
+              <p style={{ fontSize: '11px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px' }}>
+                AI Recommendation
+              </p>
+              <p style={{ fontSize: '15px', fontWeight: 600, color: '#111827', margin: 0 }}>
+                {suggestConcept}
+              </p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0', lineHeight: 1.5 }}>
+                This concept will have the highest impact on your mastery.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => router.replace('/tree')}
+              style={{ padding: '6px 14px', background: 'transparent', color: '#6b7280', border: '1px solid rgba(107,114,128,0.22)', borderRadius: '6px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={() => router.push(`/learn?topic=${encodeURIComponent(suggestConcept)}&mode=quiz`)}
+              style={{ padding: '6px 16px', background: '#1a5c2a', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Start Quiz →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Node detail panel */}
       {selectedNode && (
-        <div style={{
+        <div className="panel-in panel-in-1" style={{
           position: 'absolute',
           top: 0,
           right: 0,
@@ -261,5 +326,13 @@ export default function TreePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TreePage() {
+  return (
+    <Suspense fallback={null}>
+      <TreePageInner />
+    </Suspense>
   );
 }

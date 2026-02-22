@@ -104,6 +104,20 @@ export function getNodeRadius(mastery_score: number): number {
   return 7 + mastery_score * 7; // 7–14 px
 }
 
+/** Drop edges that cross subject boundaries so each course cluster stays separate.
+ *  Subject-root hub edges (subject_root__*) are always kept. */
+export function filterCrossSubjectEdges(nodes: GraphNode[], edges: GraphEdge[]): GraphEdge[] {
+  const nodeSubjectMap = new Map(nodes.map(n => [n.id, n.subject]));
+  return edges.filter(e => {
+    const srcId = e.source as string;
+    const tgtId = e.target as string;
+    if (srcId.startsWith('subject_root__') || tgtId.startsWith('subject_root__')) return true;
+    const srcSubj = nodeSubjectMap.get(srcId);
+    const tgtSubj = nodeSubjectMap.get(tgtId);
+    return !srcSubj || !tgtSubj || srcSubj === tgtSubj;
+  });
+}
+
 export function computeGraphDiff(
   prevNodes: GraphNode[],
   nextNodes: GraphNode[],

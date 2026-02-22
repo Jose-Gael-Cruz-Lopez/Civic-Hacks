@@ -420,10 +420,12 @@ function CalendarInner() {
       <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#111827', margin: 0 }}>Calendar</h1>
 
       {/* Calendar grid — full width, prominent */}
-      <CalendarGrid assignments={assignments} />
+      <div className="panel-in panel-in-1">
+        <CalendarGrid assignments={assignments} />
+      </div>
 
       {/* Import syllabus */}
-      <div>
+      <div className="panel-in panel-in-2">
         <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
           Import Syllabus
         </p>
@@ -456,7 +458,7 @@ function CalendarInner() {
       )}
 
       {/* All assignments */}
-      <div>
+      <div className="panel-in panel-in-3">
         <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
           All Assignments
         </p>
@@ -468,7 +470,7 @@ function CalendarInner() {
       </div>
 
       {/* Google Calendar panel */}
-      <div style={{ border: '1px solid rgba(107,114,128,0.15)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8faf8' }}>
+      <div className="panel-in panel-in-4" style={{ border: '1px solid rgba(107,114,128,0.15)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8faf8' }}>
         {googleConnected ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
