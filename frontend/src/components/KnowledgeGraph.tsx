@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import * as d3 from 'd3';
 import { GraphNode, GraphEdge } from '@/lib/types';
-import { getMasteryColor, getMasteryHighlightColor, getNodeRadius } from '@/lib/graphUtils';
+import { getMasteryColor, getNodeRadius, getCourseColor } from '@/lib/graphUtils';
 
 interface KnowledgeGraphProps {
   nodes: GraphNode[];
@@ -37,8 +37,17 @@ const ROOT_RADIUS = 22;
 const getSimRadius = (d: SimNode) =>
   d.is_subject_root ? ROOT_RADIUS : getNodeRadius(d.mastery_score);
 
-// All tiers that need defs (includes subject_root hub nodes)
-const TIERS = ['mastered', 'learning', 'struggling', 'unexplored', 'subject_root'] as const;
+/** Opacity encodes mastery tier — full colour = mastered, ghost = unexplored. */
+function masteryOpacity(tier: string): number {
+  switch (tier) {
+    case 'mastered':     return 1.0;
+    case 'learning':     return 0.75;
+    case 'struggling':   return 0.55;
+    case 'unexplored':   return 0.28;
+    case 'subject_root': return 1.0;
+    default:             return 0.65;
+  }
+}
 
 export default function KnowledgeGraph({
   nodes,
@@ -79,33 +88,6 @@ export default function KnowledgeGraph({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // ── Defs: glow filters + radial gradients per tier ────────────────────
-    const defs = svg.append('defs');
-
-    TIERS.forEach(tier => {
-      const color = getMasteryColor(tier);
-      const highlight = getMasteryHighlightColor(tier);
-      const blurAmt = tier === 'unexplored' ? 2.5 : tier === 'subject_root' ? 7 : 5;
-
-      const filter = defs.append('filter')
-        .attr('id', `glow-${tier}`)
-        .attr('x', '-80%').attr('y', '-80%')
-        .attr('width', '260%').attr('height', '260%');
-      filter.append('feGaussianBlur')
-        .attr('in', 'SourceGraphic')
-        .attr('stdDeviation', blurAmt)
-        .attr('result', 'coloredBlur');
-      const merge = filter.append('feMerge');
-      merge.append('feMergeNode').attr('in', 'coloredBlur');
-      merge.append('feMergeNode').attr('in', 'SourceGraphic');
-
-      const grad = defs.append('radialGradient')
-        .attr('id', `grad-${tier}`)
-        .attr('cx', '35%').attr('cy', '30%').attr('r', '65%');
-      grad.append('stop').attr('offset', '0%').attr('stop-color', highlight).attr('stop-opacity', '1');
-      grad.append('stop').attr('offset', '100%').attr('stop-color', color).attr('stop-opacity', '0.85');
-    });
-
     // ── Layout ─────────────────────────────────────────────────────────────
     const container = svg.append('g').attr('class', 'graph-container');
 
@@ -132,7 +114,6 @@ export default function KnowledgeGraph({
         strength: e.strength,
       }));
 
-    // Our tuned force values from main
     const sim = d3.forceSimulation(simNodes)
       .force('center', d3.forceCenter(width / 2, height / 2).strength(0.04))
       .force('x', d3.forceX(width / 2).strength(0.03))
@@ -205,20 +186,15 @@ export default function KnowledgeGraph({
         .attr('opacity', 0.8);
     }
 
-    // Outer soft bloom halo
-    nodeSel.append('circle')
-      .attr('r', d => getSimRadius(d) + 5)
-      .attr('fill', d => getMasteryColor(d.mastery_tier))
-      .attr('opacity', d => d.is_subject_root ? 0.18 : 0.12)
-      .attr('filter', d => `url(#glow-${d.mastery_tier})`);
-
-    // Main orb
+    // ── Main orb — matte flat colour by course, opacity = mastery ──────────
     const circles = nodeSel.append('circle')
+      .attr('class', 'main-circle')
       .attr('r', d => getSimRadius(d))
-      .attr('fill', d => `url(#grad-${d.mastery_tier})`)
-      .attr('filter', d => `url(#glow-${d.mastery_tier})`)
-      .attr('stroke', d => d.is_subject_root ? 'rgba(26,92,42,0.5)' : 'rgba(26,92,42,0.25)')
-      .attr('stroke-width', d => d.is_subject_root ? 2 : 1);
+      .attr('fill', d => getCourseColor(d.subject).fill)
+      .attr('fill-opacity', d => masteryOpacity(d.mastery_tier))
+      .attr('stroke', d => getCourseColor(d.subject).fill)
+      .attr('stroke-opacity', d => d.is_subject_root ? 0.7 : 0.4)
+      .attr('stroke-width', d => d.is_subject_root ? 2.5 : 1.5);
 
     if (animate) {
       const prevNodeIds = new Set(prevNodesRef.current.map(n => n.id));
@@ -236,12 +212,12 @@ export default function KnowledgeGraph({
         if (currN && currN.mastery_tier !== prevN.mastery_tier) {
           circles.filter(d => d.id === currN.id)
             .transition().duration(500)
-            .attr('fill', `url(#grad-${currN.mastery_tier})`);
+            .attr('fill-opacity', masteryOpacity(currN.mastery_tier));
         }
       });
     }
 
-    // Labels — subject_root hubs get larger bold text
+    // Labels
     nodeSel.append('text')
       .text(d => d.concept_name)
       .attr('text-anchor', 'middle')
@@ -249,7 +225,7 @@ export default function KnowledgeGraph({
       .attr('font-size', d => d.is_subject_root ? '13px' : '11px')
       .attr('font-weight', d => d.is_subject_root ? '600' : '400')
       .attr('font-family', 'Inter, system-ui, sans-serif')
-      .attr('fill', d => d.is_subject_root ? '#4a1d96' : '#374151')
+      .attr('fill', d => d.is_subject_root ? getCourseColor(d.subject).text : '#374151')
       .attr('pointer-events', 'none')
       .style('user-select', 'none');
 
@@ -265,8 +241,13 @@ export default function KnowledgeGraph({
           const lastStudied = sourceNode.last_studied_at
             ? new Date(sourceNode.last_studied_at).toLocaleDateString()
             : 'Never';
+          const cc = getCourseColor(sourceNode.subject);
           tooltip.innerHTML = `
             <div style="font-weight:600;color:#111827;margin-bottom:4px">${sourceNode.concept_name}</div>
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+              <span style="width:8px;height:8px;border-radius:50%;background:${cc.fill};display:inline-block;flex-shrink:0"></span>
+              <span style="color:${cc.text};font-size:12px">${sourceNode.subject}</span>
+            </div>
             <div style="color:${getMasteryColor(sourceNode.mastery_tier)};font-size:12px;margin-bottom:2px">${mastery}% mastery</div>
             <div style="color:#6b7280;font-size:12px">Last studied: ${lastStudied}</div>
           `;
@@ -274,8 +255,9 @@ export default function KnowledgeGraph({
           const rect = svgRef.current!.getBoundingClientRect();
           tooltip.style.left = `${event.clientX - rect.left + 14}px`;
           tooltip.style.top = `${event.clientY - rect.top - 12}px`;
-          d3.select(this).select('circle:last-of-type')
-            .attr('stroke', 'rgba(26,92,42,0.7)').attr('stroke-width', 2);
+          d3.select(this).select('.main-circle')
+            .attr('stroke-opacity', 1)
+            .attr('stroke-width', 2.5);
         })
         .on('mousemove', function(event) {
           if (!tooltip || !svgRef.current) return;
@@ -285,9 +267,9 @@ export default function KnowledgeGraph({
         })
         .on('mouseout', function(_, d) {
           if (tooltip) tooltip.style.display = 'none';
-          d3.select(this).select('circle:last-of-type')
-            .attr('stroke', (d as SimNode).is_subject_root ? 'rgba(26,92,42,0.5)' : 'rgba(26,92,42,0.25)')
-            .attr('stroke-width', (d as SimNode).is_subject_root ? 2 : 1);
+          d3.select(this).select('.main-circle')
+            .attr('stroke-opacity', (d as SimNode).is_subject_root ? 0.7 : 0.4)
+            .attr('stroke-width', (d as SimNode).is_subject_root ? 2.5 : 1.5);
         })
         .on('click', (_, d) => {
           const sourceNode = nodes.find(n => n.id === d.id);

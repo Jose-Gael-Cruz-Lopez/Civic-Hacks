@@ -1,5 +1,45 @@
 import { GraphNode, GraphEdge } from './types';
 
+// ── Course colour palette ─────────────────────────────────────────────────────
+// Each unique subject/course name is deterministically hashed to one of these
+// matte flat colours. Used for graph nodes AND calendar assignment chips.
+
+export interface CourseColor {
+  fill:   string; // solid node / dot colour
+  bg:     string; // light tinted background
+  text:   string; // readable foreground text
+  border: string; // subtle border
+}
+
+const COURSE_COLOR_PALETTE: CourseColor[] = [
+  { fill: '#6366f1', bg: 'rgba(99,102,241,0.12)',  text: '#4338ca', border: 'rgba(99,102,241,0.3)'  }, // indigo
+  { fill: '#0d9488', bg: 'rgba(13,148,136,0.12)',  text: '#0f766e', border: 'rgba(13,148,136,0.3)'  }, // teal
+  { fill: '#d97706', bg: 'rgba(217,119,6,0.12)',   text: '#b45309', border: 'rgba(217,119,6,0.3)'   }, // amber
+  { fill: '#dc2626', bg: 'rgba(220,38,38,0.12)',   text: '#b91c1c', border: 'rgba(220,38,38,0.3)'   }, // red
+  { fill: '#7c3aed', bg: 'rgba(124,58,237,0.12)',  text: '#6d28d9', border: 'rgba(124,58,237,0.3)'  }, // violet
+  { fill: '#0891b2', bg: 'rgba(8,145,178,0.12)',   text: '#0e7490', border: 'rgba(8,145,178,0.3)'   }, // cyan
+  { fill: '#65a30d', bg: 'rgba(101,163,13,0.12)',  text: '#4d7c0f', border: 'rgba(101,163,13,0.3)'  }, // lime
+  { fill: '#db2777', bg: 'rgba(219,39,119,0.12)',  text: '#be185d', border: 'rgba(219,39,119,0.3)'  }, // pink
+  { fill: '#ea580c', bg: 'rgba(234,88,12,0.12)',   text: '#c2410c', border: 'rgba(234,88,12,0.3)'   }, // orange
+  { fill: '#059669', bg: 'rgba(5,150,105,0.12)',   text: '#047857', border: 'rgba(5,150,105,0.3)'   }, // emerald
+  { fill: '#2563eb', bg: 'rgba(37,99,235,0.12)',   text: '#1d4ed8', border: 'rgba(37,99,235,0.3)'   }, // blue
+  { fill: '#9333ea', bg: 'rgba(147,51,234,0.12)',  text: '#7e22ce', border: 'rgba(147,51,234,0.3)'  }, // purple
+];
+
+function hashString(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  return Math.abs(h);
+}
+
+/** Deterministically maps any subject/course name to a matte colour entry. */
+export function getCourseColor(subject: string): CourseColor {
+  const key = (subject ?? '').toLowerCase().trim();
+  if (!key) return COURSE_COLOR_PALETTE[0];
+  return COURSE_COLOR_PALETTE[hashString(key) % COURSE_COLOR_PALETTE.length];
+}
+
+// ── Mastery colours (still used in detail panels / tooltips) ─────────────────
 // Forest green / light theme palette
 export const MASTERY_COLORS: Record<string, string> = {
   mastered:     '#16a34a', // forest green

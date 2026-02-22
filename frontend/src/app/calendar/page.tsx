@@ -6,24 +6,16 @@ import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
 import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, checkCalendarStatus, syncToGoogleCalendar } from '@/lib/api';
+import { getCourseColor } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
 
 type CalendarView = 'month' | 'week' | 'day';
 
-const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  exam:     { bg: 'rgba(220,38,38,0.08)',  text: '#b91c1c', border: 'rgba(220,38,38,0.2)' },
-  project:  { bg: 'rgba(234,88,12,0.08)',  text: '#c2410c', border: 'rgba(234,88,12,0.2)' },
-  homework: { bg: 'rgba(107,114,128,0.1)', text: '#374151', border: 'rgba(107,114,128,0.2)' },
-  quiz:     { bg: 'rgba(161,98,7,0.08)',   text: '#92400e', border: 'rgba(161,98,7,0.2)' },
-  reading:  { bg: 'rgba(29,78,216,0.08)',  text: '#1e40af', border: 'rgba(29,78,216,0.2)' },
-  other:    { bg: 'rgba(107,114,128,0.08)', text: '#6b7280', border: 'rgba(107,114,128,0.15)' },
-};
-
 function AssignmentChip({ a }: { a: Assignment }) {
-  const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
+  const c = getCourseColor(a.course_name || a.assignment_type);
   return (
     <div
-      title={`${a.title}${a.course_name ? ` — ${a.course_name}` : ''}${a.notes ? `\n${a.notes}` : ''}`}
+      title={`${a.title}${a.course_name ? ` — ${a.course_name}` : ''} [${a.assignment_type}]${a.notes ? `\n${a.notes}` : ''}`}
       style={{
         background: c.bg,
         color: c.text,
@@ -202,13 +194,18 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '600px', margin: '0 auto' }}>
             {dayAssignments.map(a => {
-              const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
+              const c = getCourseColor(a.course_name || a.assignment_type);
               return (
-                <div key={a.id} style={{ padding: '14px 16px', borderRadius: '8px', background: c.bg, borderLeft: `4px solid ${c.text}`, display: 'flex', flexDirection: 'column', gap: '6px', border: `1px solid ${c.border}` }}>
+                <div key={a.id} style={{ padding: '14px 16px', borderRadius: '8px', background: c.bg, borderLeft: `4px solid ${c.fill}`, display: 'flex', flexDirection: 'column', gap: '6px', border: `1px solid ${c.border}` }}>
                   <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{a.title}</span>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {a.course_name && <span style={{ fontSize: '12px', color: '#4b5563', fontWeight: 500 }}>{a.course_name}</span>}
-                    <span style={{ fontSize: '11px', color: c.text, fontWeight: 600, background: 'rgba(255,255,255,0.8)', padding: '1px 7px', borderRadius: '4px', border: `1px solid ${c.border}` }}>{a.assignment_type}</span>
+                    {a.course_name && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: c.text, fontWeight: 600 }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: c.fill, display: 'inline-block', flexShrink: 0 }} />
+                        {a.course_name}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '11px', color: '#6b7280', padding: '1px 7px', borderRadius: '4px', background: 'rgba(107,114,128,0.08)', border: '1px solid rgba(107,114,128,0.15)' }}>{a.assignment_type}</span>
                     {a.notes && <span style={{ fontSize: '12px', color: '#6b7280' }}>{a.notes}</span>}
                   </div>
                 </div>

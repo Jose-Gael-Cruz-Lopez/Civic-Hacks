@@ -51,6 +51,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
+              className="nav-link"
               style={{
                 padding: '4px 12px',
                 fontSize: '13px',

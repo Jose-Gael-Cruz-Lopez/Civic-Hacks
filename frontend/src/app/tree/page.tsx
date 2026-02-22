@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import { GraphNode, GraphEdge } from '@/lib/types';
 import { getGraph } from '@/lib/api';
-import { getMasteryColor, getMasteryLabel, formatRelativeTime } from '@/lib/graphUtils';
+import { getMasteryColor, getMasteryLabel, formatRelativeTime, getCourseColor } from '@/lib/graphUtils';
 import { useUser } from '@/context/UserContext';
 
 type Filter = 'all' | 'mastered' | 'learning' | 'struggling' | 'unexplored';
@@ -160,7 +160,10 @@ export default function TreePage() {
 
           <div>
             <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject</p>
-            <p style={{ fontSize: '14px', color: '#374151' }}>{selectedNode.subject}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: getCourseColor(selectedNode.subject).fill, flexShrink: 0, display: 'inline-block' }} />
+              <p style={{ fontSize: '14px', color: getCourseColor(selectedNode.subject).text, fontWeight: 500, margin: 0 }}>{selectedNode.subject}</p>
+            </div>
           </div>
 
           <div>

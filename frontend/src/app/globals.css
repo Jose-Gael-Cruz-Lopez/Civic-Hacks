@@ -32,6 +32,13 @@
   --bg-glass:   rgba(240, 246, 240, 0.95);
   --border-glass: rgba(107, 114, 128, 0.15);
   --text-primary: #111827;
+
+  /* Chat panel — dark forest green theme */
+  --chat-bg:       #1a3d24;
+  --chat-topbar:   #122c19;
+  --chat-text:     #e8f2ea;
+  --chat-text-dim: rgba(232, 242, 234, 0.55);
+  --chat-border:   rgba(255, 255, 255, 0.1);
 }
 
 body {
@@ -67,6 +74,14 @@ code, pre {
 }
 
 input, select, textarea { color-scheme: light; }
+
+/* ── Nav links ──────────────────────────────────────────── */
+.nav-link {
+  transition: color 0.15s;
+}
+.nav-link:hover {
+  color: var(--accent) !important;
+}
 
 /* ── Layout shells ──────────────────────────────────────── */
 .panel {
