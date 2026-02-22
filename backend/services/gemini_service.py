@@ -63,10 +63,10 @@ def call_gemini(prompt: str, retries: int = 1) -> str:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.7,
-                    max_output_tokens=4096,
+                    max_output_tokens=16384,
                 ),
             )
-            if response.text is None:
+            if not response.text:
                 raise ValueError("Gemini returned empty response (content may have been filtered)")
             return response.text
         except Exception as e:
@@ -80,7 +80,10 @@ def call_gemini(prompt: str, retries: int = 1) -> str:
 def call_gemini_json(prompt: str):
     raw = call_gemini(prompt)
     cleaned = _extract_json(raw)
-    return json.loads(cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Gemini response was not valid JSON: {e}\nRaw response: {raw[:200]!r}") from e
 
 
 def extract_graph_update(response_text: str) -> tuple:

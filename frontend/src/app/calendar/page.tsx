@@ -5,17 +5,33 @@ import { useSearchParams } from 'next/navigation';
 import UploadZone from '@/components/UploadZone';
 import AssignmentTable from '@/components/AssignmentTable';
 import { Assignment } from '@/lib/types';
-import { extractSyllabus, saveAssignments, getUpcomingAssignments, getCalendarAuthUrl, checkCalendarStatus, syncToGoogleCalendar } from '@/lib/api';
-import { getCourseColor } from '@/lib/graphUtils';
+import {
+  extractSyllabus,
+  getUpcomingAssignments,
+  getCalendarAuthUrl,
+  getCalendarStatus,
+  syncToGoogleCalendar,
+  importGoogleEvents,
+  disconnectGoogleCalendar,
+} from '@/lib/api';
 import { useUser } from '@/context/UserContext';
 
 type CalendarView = 'month' | 'week' | 'day';
 
+const TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  exam:     { bg: 'rgba(220,38,38,0.08)',   text: '#b91c1c', border: 'rgba(220,38,38,0.2)' },
+  project:  { bg: 'rgba(234,88,12,0.08)',   text: '#c2410c', border: 'rgba(234,88,12,0.2)' },
+  homework: { bg: 'rgba(107,114,128,0.1)',  text: '#374151', border: 'rgba(107,114,128,0.2)' },
+  quiz:     { bg: 'rgba(161,98,7,0.08)',    text: '#92400e', border: 'rgba(161,98,7,0.2)' },
+  reading:  { bg: 'rgba(29,78,216,0.08)',   text: '#1e40af', border: 'rgba(29,78,216,0.2)' },
+  other:    { bg: 'rgba(107,114,128,0.08)', text: '#6b7280', border: 'rgba(107,114,128,0.15)' },
+};
+
 function AssignmentChip({ a }: { a: Assignment }) {
-  const c = getCourseColor(a.course_name || a.assignment_type);
+  const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
   return (
     <div
-      title={`${a.title}${a.course_name ? ` — ${a.course_name}` : ''} [${a.assignment_type}]${a.notes ? `\n${a.notes}` : ''}`}
+      title={`${a.title}${a.course_name ? ` — ${a.course_name}` : ''}${a.notes ? `\n${a.notes}` : ''}`}
       style={{
         background: c.bg,
         color: c.text,
@@ -194,18 +210,13 @@ function CalendarGrid({ assignments }: { assignments: Assignment[] }) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '600px', margin: '0 auto' }}>
             {dayAssignments.map(a => {
-              const c = getCourseColor(a.course_name || a.assignment_type);
+              const c = TYPE_COLORS[a.assignment_type] ?? TYPE_COLORS.other;
               return (
-                <div key={a.id} style={{ padding: '14px 16px', borderRadius: '8px', background: c.bg, borderLeft: `4px solid ${c.fill}`, display: 'flex', flexDirection: 'column', gap: '6px', border: `1px solid ${c.border}` }}>
+                <div key={a.id} style={{ padding: '14px 16px', borderRadius: '8px', background: c.bg, borderLeft: `4px solid ${c.text}`, display: 'flex', flexDirection: 'column', gap: '6px', border: `1px solid ${c.border}` }}>
                   <span style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>{a.title}</span>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {a.course_name && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: c.text, fontWeight: 600 }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: c.fill, display: 'inline-block', flexShrink: 0 }} />
-                        {a.course_name}
-                      </span>
-                    )}
-                    <span style={{ fontSize: '11px', color: '#6b7280', padding: '1px 7px', borderRadius: '4px', background: 'rgba(107,114,128,0.08)', border: '1px solid rgba(107,114,128,0.15)' }}>{a.assignment_type}</span>
+                    {a.course_name && <span style={{ fontSize: '12px', color: '#4b5563', fontWeight: 500 }}>{a.course_name}</span>}
+                    <span style={{ fontSize: '11px', color: c.text, fontWeight: 600, background: 'rgba(255,255,255,0.8)', padding: '1px 7px', borderRadius: '4px', border: `1px solid ${c.border}` }}>{a.assignment_type}</span>
                     {a.notes && <span style={{ fontSize: '12px', color: '#6b7280' }}>{a.notes}</span>}
                   </div>
                 </div>
@@ -267,20 +278,27 @@ function CalendarInner() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadFilename, setUploadFilename] = useState('');
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncedCount, setSyncedCount] = useState<number | null>(null);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+  const [importingGoogle, setImportingGoogle] = useState(false);
 
   useEffect(() => {
-    getUpcomingAssignments(USER_ID).then(data => setAssignments(data.assignments)).catch(console.error);
-    // Check connection from URL param (just returned from OAuth) or by querying the backend
+    getUpcomingAssignments(USER_ID)
+      .then(data => setAssignments(data.assignments))
+      .catch(console.error);
+
+    // If just returned from OAuth redirect, trust the URL param immediately,
+    // then verify with the backend on the next render cycle
     if (searchParams.get('connected') === 'true') {
       setGoogleConnected(true);
-    } else {
-      checkCalendarStatus(USER_ID).then(res => setGoogleConnected(res.connected)).catch(() => {});
     }
+    getCalendarStatus(USER_ID)
+      .then(res => setGoogleConnected(res.connected))
+      .catch(() => {});
   }, [USER_ID]);
 
   const handleFile = async (file: File) => {
@@ -294,7 +312,8 @@ function CalendarInner() {
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await extractSyllabus(form);
+      // Backend now auto-saves to DB and returns saved_count
+      const res = await extractSyllabus(form, USER_ID);
       const mapped: Assignment[] = (res.assignments ?? []).map((a: any, i: number) => ({
         id: `extracted_${i}_${Date.now()}`,
         title: a.title ?? '',
@@ -308,6 +327,15 @@ function CalendarInner() {
       setWarnings(res.warnings ?? []);
       setRawText(res.raw_text ?? '');
       setFileProcessed(true);
+      // Merge into calendar immediately — already saved in DB
+      if (mapped.length > 0) {
+        setAssignments(prev => {
+          const titles = new Set(prev.map(a => a.title));
+          return [...prev, ...mapped.filter(a => !titles.has(a.title))];
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      }
     } catch (e: any) {
       setWarnings([e.message || 'Extraction failed']);
     } finally {
@@ -315,29 +343,27 @@ function CalendarInner() {
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await saveAssignments(USER_ID, extractedAssignments);
-      setAssignments(prev => {
-        const ids = new Set(prev.map(a => a.id));
-        return [...prev, ...extractedAssignments.filter(a => !ids.has(a.id))];
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  // Fixed: passes USER_ID so backend knows whose token to store
   const handleConnectGoogle = async () => {
+    setGoogleLoading(true);
     try {
       const res = await getCalendarAuthUrl(USER_ID);
       window.location.href = res.url;
-    } catch {
-      alert('Google Calendar not configured. Add GOOGLE_CLIENT_ID to backend .env');
+    } catch (e: any) {
+      alert(e.message || 'Failed to start Google Calendar connection.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    try {
+      await disconnectGoogleCalendar(USER_ID);
+      setGoogleConnected(false);
+      setGoogleEvents([]);
+      setSyncedCount(null);
+    } catch (e: any) {
+      alert(e.message || 'Failed to disconnect.');
     }
   };
 
@@ -347,12 +373,26 @@ function CalendarInner() {
     try {
       const res = await syncToGoogleCalendar(USER_ID);
       setSyncedCount(res.synced_count);
-      // Refresh assignments so google_event_id is up to date
-      getUpcomingAssignments(USER_ID).then(data => setAssignments(data.assignments)).catch(console.error);
+      // Refresh so google_event_id values are up to date
+      getUpcomingAssignments(USER_ID)
+        .then(data => setAssignments(data.assignments))
+        .catch(console.error);
     } catch (e: any) {
       alert(e.message);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleImportGoogle = async () => {
+    setImportingGoogle(true);
+    try {
+      const res = await importGoogleEvents(USER_ID, 60);
+      setGoogleEvents(res.events);
+    } catch (e: any) {
+      alert(e.message || 'Failed to import Google Calendar events.');
+    } finally {
+      setImportingGoogle(false);
     }
   };
 
@@ -379,24 +419,21 @@ function CalendarInner() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {extractedAssignments.length > 0
-                ? `Detected ${extractedAssignments.length} assignment${extractedAssignments.length !== 1 ? 's' : ''} — edit before saving`
-                : 'No assignments detected — add rows manually'}
+                ? `Detected ${extractedAssignments.length} assignment${extractedAssignments.length !== 1 ? 's' : ''}`
+                : 'No assignments detected'}
             </p>
-            <button
-              onClick={handleSave}
-              disabled={saving || extractedAssignments.length === 0}
-              style={{
-                padding: '6px 14px',
-                background: extractedAssignments.length === 0 ? '#f5f5f5' : 'rgba(26,92,42,0.08)',
-                color: extractedAssignments.length === 0 ? '#9ca3af' : '#1a5c2a',
-                border: extractedAssignments.length === 0 ? '1px solid rgba(107,114,128,0.15)' : '1px solid rgba(26,92,42,0.3)',
+            {extractedAssignments.length > 0 && (
+              <span style={{
+                padding: '4px 12px',
+                background: saved ? 'rgba(26,92,42,0.08)' : 'rgba(107,114,128,0.06)',
+                color: saved ? '#1a5c2a' : '#6b7280',
+                border: saved ? '1px solid rgba(26,92,42,0.3)' : '1px solid rgba(107,114,128,0.15)',
                 borderRadius: '4px',
-                fontSize: '13px',
-                cursor: extractedAssignments.length === 0 ? 'default' : 'pointer',
-              }}
-            >
-              {saved ? 'Saved!' : saving ? 'Saving...' : 'Save to Calendar'}
-            </button>
+                fontSize: '12px',
+              }}>
+                {saved ? 'Saved to calendar' : 'Auto-saving...'}
+              </span>
+            )}
           </div>
           <AssignmentTable assignments={extractedAssignments} onChange={setExtractedAssignments} />
 
@@ -419,6 +456,7 @@ function CalendarInner() {
         </div>
       )}
 
+      {/* All assignments */}
       <div>
         <p style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
           All Assignments
@@ -430,29 +468,68 @@ function CalendarInner() {
         )}
       </div>
 
-      <div style={{ border: '1px solid rgba(107,114,128,0.15)', borderRadius: '8px', padding: '16px', display: 'flex', alignItems: 'center', gap: '12px', background: '#f8faf8' }}>
+      {/* Google Calendar panel */}
+      <div style={{ border: '1px solid rgba(107,114,128,0.15)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8faf8' }}>
         {googleConnected ? (
           <>
-            <span style={{ fontSize: '13px', color: '#1a5c2a', fontWeight: 500 }}>Connected to Google Calendar</span>
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              style={{ padding: '6px 14px', background: 'rgba(26,92,42,0.08)', color: '#1a5c2a', border: '1px solid rgba(26,92,42,0.3)', borderRadius: '4px', fontSize: '13px', cursor: syncing ? 'default' : 'pointer', opacity: syncing ? 0.6 : 1 }}
-            >
-              {syncing ? 'Syncing...' : 'Sync to Google Calendar'}
-            </button>
-            {syncedCount !== null && (
-              <span style={{ fontSize: '13px', color: '#4ade80' }}>
-                {syncedCount === 0 ? 'All assignments already synced' : `Synced ${syncedCount} assignment${syncedCount !== 1 ? 's' : ''}`}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '13px', color: '#1a5c2a', fontWeight: 500 }}>● Connected to Google Calendar</span>
+
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                style={{ padding: '6px 14px', background: 'rgba(26,92,42,0.08)', color: '#1a5c2a', border: '1px solid rgba(26,92,42,0.3)', borderRadius: '4px', fontSize: '13px', cursor: syncing ? 'default' : 'pointer', opacity: syncing ? 0.6 : 1 }}
+              >
+                {syncing ? 'Syncing...' : 'Sync to Google Calendar'}
+              </button>
+
+              <button
+                onClick={handleImportGoogle}
+                disabled={importingGoogle}
+                style={{ padding: '6px 14px', background: '#f3f4f6', color: '#374151', border: '1px solid rgba(107,114,128,0.2)', borderRadius: '4px', fontSize: '13px', cursor: importingGoogle ? 'default' : 'pointer', opacity: importingGoogle ? 0.6 : 1 }}
+              >
+                {importingGoogle ? 'Importing...' : 'View upcoming Google events'}
+              </button>
+
+              {syncedCount !== null && (
+                <span style={{ fontSize: '13px', color: '#1a5c2a' }}>
+                  {syncedCount === 0 ? 'All assignments already synced' : `Synced ${syncedCount} assignment${syncedCount !== 1 ? 's' : ''}`}
+                </span>
+              )}
+
+              <button
+                onClick={handleDisconnectGoogle}
+                style={{ marginLeft: 'auto', padding: '6px 12px', background: 'none', color: '#9ca3af', border: '1px solid rgba(107,114,128,0.2)', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}
+              >
+                Disconnect
+              </button>
+            </div>
+
+            {/* Imported Google events preview */}
+            {googleEvents.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <p style={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+                  Upcoming Google Events ({googleEvents.length})
+                </p>
+                {googleEvents.map(ev => (
+                  <div
+                    key={ev.google_event_id}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#ffffff', border: '1px solid rgba(107,114,128,0.12)', borderRadius: '6px', fontSize: '13px' }}
+                  >
+                    <span style={{ color: '#111827' }}>{ev.title}</span>
+                    <span style={{ color: '#9ca3af', fontSize: '12px' }}>{ev.start_date}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </>
         ) : (
           <button
             onClick={handleConnectGoogle}
-            style={{ padding: '8px 16px', background: '#ffffff', color: '#4b5563', border: '1px solid rgba(107,114,128,0.25)', borderRadius: '6px', fontSize: '13px', cursor: 'pointer' }}
+            disabled={googleLoading}
+            style={{ padding: '8px 16px', background: '#ffffff', color: '#4b5563', border: '1px solid rgba(107,114,128,0.25)', borderRadius: '6px', fontSize: '13px', cursor: googleLoading ? 'default' : 'pointer', alignSelf: 'flex-start', opacity: googleLoading ? 0.6 : 1 }}
           >
-            Connect Google Calendar
+            {googleLoading ? 'Redirecting...' : 'Connect Google Calendar'}
           </button>
         )}
       </div>
