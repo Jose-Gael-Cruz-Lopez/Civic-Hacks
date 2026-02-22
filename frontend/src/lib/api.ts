@@ -12,21 +12,21 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// Users
+// ── Users ─────────────────────────────────────────────────────────────────────
+
 export const getUsers = () =>
   fetchJSON<{ users: { id: string; name: string; room_id: string | null }[] }>('/api/users');
 
-// Graph
+// ── Graph ─────────────────────────────────────────────────────────────────────
+
 export const getGraph = (userId: string) =>
   fetchJSON<{ nodes: any[]; edges: any[]; stats: any }>(`/api/graph/${userId}`);
 
 export const getRecommendations = (userId: string) =>
   fetchJSON<{ recommendations: any[] }>(`/api/graph/${userId}/recommendations`);
 
-export const getUpcomingAssignments = (userId: string) =>
-  fetchJSON<{ assignments: any[] }>(`/api/calendar/upcoming/${userId}`);
+// ── Learn ─────────────────────────────────────────────────────────────────────
 
-// Learn
 export const startSession = (userId: string, topic: string, mode: string) =>
   fetchJSON<{ session_id: string; initial_message: string; graph_state: any }>('/api/learn/start-session', {
     method: 'POST',
@@ -52,16 +52,26 @@ export const endSession = (sessionId: string) =>
   });
 
 export const getSessions = (userId: string, limit = 10) =>
-  fetchJSON<{ sessions: { id: string; topic: string; mode: string; started_at: string; ended_at: string | null; message_count: number; is_active: boolean }[] }>(
-    `/api/learn/sessions/${userId}?limit=${limit}`
-  );
+  fetchJSON<{
+    sessions: {
+      id: string;
+      topic: string;
+      mode: string;
+      started_at: string;
+      ended_at: string | null;
+      message_count: number;
+      is_active: boolean;
+    }[];
+  }>(`/api/learn/sessions/${userId}?limit=${limit}`);
 
 export const resumeSession = (sessionId: string) =>
-  fetchJSON<{ session: { id: string; topic: string; mode: string; started_at: string; ended_at: string | null }; messages: { id: string; role: string; content: string; created_at: string }[] }>(
-    `/api/learn/sessions/${sessionId}/resume`
-  );
+  fetchJSON<{
+    session: { id: string; topic: string; mode: string; started_at: string; ended_at: string | null };
+    messages: { id: string; role: string; content: string; created_at: string }[];
+  }>(`/api/learn/sessions/${sessionId}/resume`);
 
-// Quiz
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+
 export const generateQuiz = (userId: string, conceptNodeId: string, numQuestions: number, difficulty: string) =>
   fetchJSON<{ quiz_id: string; questions: any[] }>('/api/quiz/generate', {
     method: 'POST',
@@ -74,13 +84,16 @@ export const submitQuiz = (quizId: string, answers: any[]) =>
     body: JSON.stringify({ quiz_id: quizId, answers }),
   });
 
-// Calendar
-export const extractSyllabus = (formData: FormData): Promise<any> => {
-  return fetch(`${API_URL}/api/calendar/extract`, {
+// ── Calendar ──────────────────────────────────────────────────────────────────
+
+export const extractSyllabus = (formData: FormData): Promise<any> =>
+  fetch(`${API_URL}/api/calendar/extract`, {
     method: 'POST',
     body: formData,
   }).then(r => r.json());
-};
+
+export const getUpcomingAssignments = (userId: string) =>
+  fetchJSON<{ assignments: any[] }>(`/api/calendar/upcoming/${userId}`);
 
 export const saveAssignments = (userId: string, assignments: any[]) =>
   fetchJSON<{ saved_count: number }>('/api/calendar/save', {
@@ -88,11 +101,15 @@ export const saveAssignments = (userId: string, assignments: any[]) =>
     body: JSON.stringify({ user_id: userId, assignments }),
   });
 
+// Fixed: userId passed as query param so backend stores token under correct user
 export const getCalendarAuthUrl = (userId: string) =>
   fetchJSON<{ url: string }>(`/api/calendar/auth-url?user_id=${encodeURIComponent(userId)}`);
 
-export const checkCalendarStatus = (userId: string) =>
-  fetchJSON<{ connected: boolean }>(`/api/calendar/status/${userId}`);
+// Aliased both names so either import works (current file uses checkCalendarStatus,
+// previous fixed version used getCalendarStatus)
+export const getCalendarStatus = (userId: string) =>
+  fetchJSON<{ connected: boolean; expires_at?: string }>(`/api/calendar/status/${userId}`);
+export const checkCalendarStatus = getCalendarStatus;
 
 export const syncToGoogleCalendar = (userId: string) =>
   fetchJSON<{ synced_count: number }>('/api/calendar/sync', {
@@ -101,12 +118,25 @@ export const syncToGoogleCalendar = (userId: string) =>
   });
 
 export const exportToGoogleCalendar = (userId: string, assignmentIds: string[]) =>
-  fetchJSON<{ exported_count: number }>('/api/calendar/export', {
+  fetchJSON<{ exported_count: number; skipped_count: number }>('/api/calendar/export', {
     method: 'POST',
     body: JSON.stringify({ user_id: userId, assignment_ids: assignmentIds }),
   });
 
-// Social
+// Pull upcoming Google Calendar events for the user to preview
+export const importGoogleEvents = (userId: string, daysAhead = 30) =>
+  fetchJSON<{ events: any[]; count: number }>(
+    `/api/calendar/import/${userId}?days_ahead=${daysAhead}`
+  );
+
+// Disconnect Google Calendar (removes stored token)
+export const disconnectGoogleCalendar = (userId: string) =>
+  fetchJSON<{ disconnected: boolean }>(`/api/calendar/disconnect/${userId}`, {
+    method: 'DELETE',
+  });
+
+// ── Social ────────────────────────────────────────────────────────────────────
+
 export const createRoom = (userId: string, roomName: string) =>
   fetchJSON<{ room_id: string; invite_code: string }>('/api/social/rooms/create', {
     method: 'POST',
