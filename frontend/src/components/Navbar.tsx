@@ -34,7 +34,7 @@ export default function Navbar() {
         zIndex: 50,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
         <img src="/sapling-icon.svg" alt="Sapling" style={{ width: '32px', height: '32px' }} />
         <span style={{
           fontFamily: "var(--font-spectral), 'Spectral', Georgia, serif",
@@ -46,7 +46,7 @@ export default function Navbar() {
         }}>
           Sapling
         </span>
-      </div>
+      </Link>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
         {LINKS.map(link => {

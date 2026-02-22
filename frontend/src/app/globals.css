@@ -348,6 +348,10 @@ input, select, textarea { color-scheme: light; }
 .animate-fade-in  { animation: fade-in  var(--dur-slow) var(--ease-out) both; }
 .animate-scale-in { animation: scale-in var(--dur-base) var(--ease-out) both; }
 
+/* ── Hide scrollbar while keeping scroll ────────────────────────── */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ── Navbar link hover ───────────────────────────────────────────── */
 .nav-link:hover {
   background: rgba(26, 92, 42, 0.10) !important;

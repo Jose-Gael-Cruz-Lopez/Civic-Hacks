@@ -248,10 +248,11 @@ function LearnInner() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <div style={{ flex: 1, borderRight: '1px solid rgba(107,114,128,0.12)', overflow: 'hidden' }}>
           {quizMode ? (
-            <div style={{ height: '100%', overflow: 'auto' }}>
+            <div style={{ height: '100%', overflow: 'hidden' }}>
               <QuizPanel
                 nodes={nodes}
                 userId={USER_ID}
+                selectedCourse={selectedCourse}
                 onLearnConcept={concept => {
                   setQuizMode(false);
                   if (concept) { setTopic(concept); beginSession(concept, mode); }

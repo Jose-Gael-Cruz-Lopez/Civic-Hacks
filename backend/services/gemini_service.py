@@ -55,16 +55,18 @@ def _extract_json(text: str) -> str:
     return text  # give up, let json.loads raise
 
 
-def call_gemini(prompt: str, retries: int = 1) -> str:
+def call_gemini(prompt: str, retries: int = 1, json_mode: bool = False) -> str:
     for attempt in range(retries + 1):
         try:
+            config = types.GenerateContentConfig(
+                temperature=0.7,
+                max_output_tokens=16384,
+                **({"response_mime_type": "application/json"} if json_mode else {}),
+            )
             response = _client.models.generate_content(
                 model=_MODEL,
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.7,
-                    max_output_tokens=16384,
-                ),
+                config=config,
             )
             if not response.text:
                 raise ValueError("Gemini returned empty response (content may have been filtered)")
@@ -78,12 +80,16 @@ def call_gemini(prompt: str, retries: int = 1) -> str:
 
 
 def call_gemini_json(prompt: str):
-    raw = call_gemini(prompt)
-    cleaned = _extract_json(raw)
+    raw = call_gemini(prompt, json_mode=True)
     try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Gemini response was not valid JSON: {e}\nRaw response: {raw[:200]!r}") from e
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Fallback: try to extract and clean JSON from the response
+        cleaned = _extract_json(raw)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Gemini response was not valid JSON: {e}\nRaw response: {raw[:200]!r}") from e
 
 
 def extract_graph_update(response_text: str) -> tuple:

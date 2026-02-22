@@ -8,12 +8,16 @@ import CustomSelect from '@/components/CustomSelect';
 interface Props {
   nodes: GraphNode[];
   userId: string;
+  selectedCourse?: string;
   onLearnConcept?: (concept: string) => void;
 }
 
 type Phase = 'select' | 'active' | 'review' | 'results';
 
-export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
+export default function QuizPanel({ nodes, userId, selectedCourse, onLearnConcept }: Props) {
+  const courseNodes = selectedCourse
+    ? nodes.filter(n => n.subject === selectedCourse && !n.is_subject_root)
+    : [];
   const [phase, setPhase] = useState<Phase>('select');
   const [selectedNodeId, setSelectedNodeId] = useState('');
   const [numQuestions, setNumQuestions] = useState(5);
@@ -102,69 +106,109 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
 
   if (phase === 'select') {
     return (
-      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Scrollable concept list */}
+        <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 12px' }}>
           <p className="label" style={{ marginBottom: '8px' }}>Select Concept</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '240px', overflowY: 'auto' }}>
-            {nodes.map(n => (
-              <label
-                key={n.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 10px',
-                  border: `1px solid ${selectedNodeId === n.id ? 'var(--accent-border)' : 'var(--border)'}`,
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  background: selectedNodeId === n.id ? 'var(--accent-dim)' : 'var(--bg-subtle)',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="concept"
-                  value={n.id}
-                  checked={selectedNodeId === n.id}
-                  onChange={() => setSelectedNodeId(n.id)}
-                />
-                <span style={{ fontSize: '14px', color: 'var(--text)', flex: 1 }}>{n.concept_name}</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{Math.round(n.mastery_score * 100)}%</span>
-              </label>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {!selectedCourse ? (
+              <p style={{ fontSize: '13px', color: 'var(--text-dim)', padding: '8px 2px' }}>Select a course first</p>
+            ) : courseNodes.map(n => {
+              const sel = selectedNodeId === n.id;
+              const pct = Math.round(n.mastery_score * 100);
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => setSelectedNodeId(n.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    border: `1px solid ${sel ? 'var(--accent-border)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    background: sel ? 'var(--accent-dim)' : 'var(--bg-panel)',
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    width: '100%',
+                    boxShadow: sel ? '0 0 0 3px var(--accent-glow)' : 'none',
+                    transition: 'border-color var(--dur-fast), background var(--dur-fast), box-shadow var(--dur-fast)',
+                  }}
+                >
+                  {/* Custom radio dot */}
+                  <span style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    border: `2px solid ${sel ? 'var(--accent)' : 'var(--border-mid)'}`,
+                    background: sel ? 'var(--accent)' : 'transparent',
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'border-color var(--dur-fast), background var(--dur-fast)',
+                  }}>
+                    {sel && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', display: 'block' }} />}
+                  </span>
+
+                  <span style={{ fontSize: '13px', color: 'var(--text)', flex: 1, fontWeight: sel ? 500 : 400 }}>
+                    {n.concept_name}
+                  </span>
+
+                  {/* Mastery pill */}
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: sel ? 'var(--accent)' : 'var(--text-dim)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-full)',
+                    background: sel ? 'rgba(26,92,42,0.1)' : 'var(--bg-subtle)',
+                    border: `1px solid ${sel ? 'var(--accent-border)' : 'var(--border)'}`,
+                    flexShrink: 0,
+                  }}>
+                    {pct}%
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <div>
-            <p className="label" style={{ marginBottom: '6px' }}>Questions</p>
-            <CustomSelect
-              value={String(numQuestions)}
-              onChange={val => setNumQuestions(Number(val))}
-              options={[5, 10, 15].map(n => ({ value: String(n), label: String(n) }))}
-              compact
-            />
+        {/* Pinned bottom controls */}
+        <div style={{ flexShrink: 0, padding: '12px 20px 20px', borderTop: '1px solid var(--border-light)' }}>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+            <div>
+              <p className="label" style={{ marginBottom: '6px' }}>Questions</p>
+              <CustomSelect
+                value={String(numQuestions)}
+                onChange={val => setNumQuestions(Number(val))}
+                options={[5, 10, 15].map(n => ({ value: String(n), label: String(n) }))}
+                compact
+              />
+            </div>
+            <div>
+              <p className="label" style={{ marginBottom: '6px' }}>Difficulty</p>
+              <CustomSelect
+                value={difficulty}
+                onChange={val => setDifficulty(val)}
+                options={['easy', 'medium', 'hard', 'adaptive'].map(d => ({ value: d, label: d }))}
+                compact
+              />
+            </div>
           </div>
-          <div>
-            <p className="label" style={{ marginBottom: '6px' }}>Difficulty</p>
-            <CustomSelect
-              value={difficulty}
-              onChange={val => setDifficulty(val)}
-              options={['easy', 'medium', 'hard', 'adaptive'].map(d => ({ value: d, label: d }))}
-              compact
-            />
-          </div>
+
+          {error && <p style={{ color: '#dc2626', fontSize: '13px', marginBottom: '8px' }}>{error}</p>}
+
+          <button
+            onClick={startQuiz}
+            disabled={!selectedNodeId || loading}
+            className="btn-accent"
+            style={{ width: '100%', cursor: selectedNodeId && !loading ? 'pointer' : 'not-allowed', opacity: !selectedNodeId || loading ? 0.4 : 1 }}
+          >
+            {loading ? 'Generating...' : 'Start Quiz'}
+          </button>
         </div>
-
-        {error && <p style={{ color: '#dc2626', fontSize: '13px' }}>{error}</p>}
-
-        <button
-          onClick={startQuiz}
-          disabled={!selectedNodeId || loading}
-          className="btn-accent"
-          style={{ cursor: selectedNodeId && !loading ? 'pointer' : 'not-allowed', opacity: !selectedNodeId || loading ? 0.4 : 1 }}
-        >
-          {loading ? 'Generating...' : 'Start Quiz'}
-        </button>
       </div>
     );
   }
@@ -172,7 +216,7 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
   if (phase === 'active' || phase === 'review') {
     const q = questions[currentQ];
     return (
-      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="no-scrollbar" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
         <p style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
           Question {currentQ + 1} of {questions.length}
         </p>
@@ -196,21 +240,21 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
                 onClick={() => phase === 'active' && setSelectedAnswer(opt.label)}
                 disabled={phase === 'review'}
                 style={{
-                  padding: '10px 14px',
+                  padding: '13px 18px',
                   border: `1px solid ${borderColor}`,
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   background: bg,
                   textAlign: 'left',
                   cursor: phase === 'active' ? 'pointer' : 'default',
                   display: 'flex',
-                  gap: '10px',
+                  gap: '13px',
                   alignItems: 'flex-start',
-                  fontSize: '14px',
+                  fontSize: '18px',
                   color: 'var(--text)',
                   fontFamily: 'inherit',
                 }}
               >
-                <span style={{ fontWeight: 600, color: 'var(--text-dim)', minWidth: '16px' }}>{opt.label}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-dim)', minWidth: '20px' }}>{opt.label}</span>
                 {opt.text}
               </button>
             );
@@ -259,7 +303,7 @@ export default function QuizPanel({ nodes, userId, onLearnConcept }: Props) {
     const pct = Math.round((results.score / results.total) * 100);
     const masteryDelta = Math.round((results.mastery_after - results.mastery_before) * 100);
     return (
-      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="no-scrollbar" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto' }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: '36px', fontWeight: 700, color: 'var(--text)' }}>{results.score}/{results.total}</p>
           <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{pct}% correct</p>
