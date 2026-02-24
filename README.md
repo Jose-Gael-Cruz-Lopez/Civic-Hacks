@@ -1,4 +1,4 @@
-# Sapling
+![Sapling](frontend/public/sapling-word-icon.png)
 
 An AI-powered study companion that builds a live knowledge graph as you learn.
 
