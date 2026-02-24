@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 ![Sapling](frontend/public/sapling-word-icon.png)
+=======
+!(frontend\public\sapling-word-icon.png)
+>>>>>>> ec47bec1777fcb9ec54e17aef1a12578baa22208
 
 An AI-powered study companion that builds a live knowledge graph as you learn.
 
