@@ -43,3 +43,15 @@ dist/
 .DS_Store
 *.pem
 Thumbs.db
+
+# ---- LLM code helpers ----
+.claude/
+.cursor/
+.copilot/
+.github/copilot/
+.gemini/
+.aider/
+.continue/
+.codeium/
+.tabnine/
+
