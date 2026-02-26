@@ -2,8 +2,11 @@ import os
 from typing import Optional
 
 import httpx
+from dotenv import load_dotenv
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 REST_URL = f"{SUPABASE_URL}/rest/v1"
 
@@ -13,6 +16,9 @@ _HEADERS = {
     "Content-Type": "application/json",
     "Prefer": "return=representation",
 }
+
+# Persistent client — reuses TCP connections across requests (much faster)
+_client = httpx.Client(headers=_HEADERS, timeout=30.0)
 
 
 class SupabaseTable:
@@ -36,31 +42,28 @@ class SupabaseTable:
             params["order"] = order
         if limit:
             params["limit"] = str(limit)
-        r = httpx.get(self.url, headers=_HEADERS, params=params)
+        r = _client.get(self.url, params=params)
         r.raise_for_status()
         return r.json()
 
     def insert(self, data) -> list:
-        r = httpx.post(self.url, headers=_HEADERS, json=data)
+        r = _client.post(self.url, json=data)
         r.raise_for_status()
         return r.json()
 
     def update(self, data: dict, filters: dict) -> list:
-        r = httpx.patch(self.url, headers=_HEADERS, params=filters, json=data)
+        r = _client.patch(self.url, params=filters, json=data)
         r.raise_for_status()
         return r.json()
 
     def upsert(self, data, on_conflict: str = "id") -> list:
-        headers = {
-            **_HEADERS,
-            "Prefer": "return=representation,resolution=merge-duplicates",
-        }
-        r = httpx.post(self.url, headers=headers, params={"on_conflict": on_conflict}, json=data)
+        headers = {"Prefer": "return=representation,resolution=merge-duplicates"}
+        r = _client.post(self.url, headers=headers, params={"on_conflict": on_conflict}, json=data)
         r.raise_for_status()
         return r.json()
 
     def delete(self, filters: dict) -> list:
-        r = httpx.delete(self.url, headers=_HEADERS, params=filters)
+        r = _client.delete(self.url, params=filters)
         r.raise_for_status()
         return r.json()
 

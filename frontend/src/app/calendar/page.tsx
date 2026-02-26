@@ -302,21 +302,24 @@ function CalendarInner() {
   const [googleEvents, setGoogleEvents] = useState<any[]>([]);
   const [importingGoogle, setImportingGoogle] = useState(false);
 
+  // Fetch data once when user is ready — does NOT depend on searchParams to
+  // prevent repeated fetches every time Next.js reconstructs the search params object
   useEffect(() => {
     if (!userReady) return;
     getUpcomingAssignments(USER_ID)
       .then(data => setAssignments(data.assignments))
       .catch(console.error);
-
-    // If just returned from OAuth redirect, trust the URL param immediately,
-    // then verify with the backend on the next render cycle
-    if (searchParams.get('connected') === 'true') {
-      setGoogleConnected(true);
-    }
     getCalendarStatus(USER_ID)
       .then(res => setGoogleConnected(res.connected))
       .catch(() => {});
-  }, [USER_ID, userReady, searchParams]);
+  }, [USER_ID, userReady]);
+
+  // Handle OAuth redirect (?connected=true) once on mount, independently
+  useEffect(() => {
+    if (searchParams.get('connected') === 'true') {
+      setGoogleConnected(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFile = async (file: File) => {
     setUploadFilename(file.name);
