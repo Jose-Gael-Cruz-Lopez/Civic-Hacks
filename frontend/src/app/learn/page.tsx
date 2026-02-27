@@ -39,6 +39,7 @@ function LearnInner() {
   const [summary, setSummary] = useState<SessionSummaryType | null>(null);
   const [graphDimensions, setGraphDimensions] = useState({ width: 500, height: 500 });
   const graphContainerRef = useRef<HTMLDivElement>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   const [topic, setTopic] = useState(topicParam);
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -106,6 +107,7 @@ function LearnInner() {
 
   const beginSession = async (t: string, m: TeachingMode) => {
     setSessionLoading(true);
+    setSessionError(null);
     setMessages([]);
     setSessionId(null);
     try {
@@ -119,8 +121,11 @@ function LearnInner() {
         content: res.initial_message,
         timestamp: new Date().toISOString(),
       }]);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      let msg: string = e?.message || 'Failed to start session. Check that the backend is running.';
+      try { msg = JSON.parse(msg)?.detail ?? msg; } catch {}
+      setSessionError(msg);
     } finally {
       setSessionLoading(false);
     }
@@ -309,14 +314,29 @@ function LearnInner() {
               />
             </div>
           ) : (
-            <ChatPanel
-              messages={messages}
-              onSend={handleSend}
-              onAction={handleAction}
-              onEndSession={handleEndSession}
-              loading={chatLoading || sessionLoading}
-              mode={mode}
-            />
+            <>
+              {sessionError && (
+                <div style={{
+                  margin: '16px',
+                  padding: '12px 16px',
+                  background: '#fef2f2',
+                  border: '1px solid #fca5a5',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: '#dc2626',
+                }}>
+                  <strong>Session error:</strong> {sessionError}
+                </div>
+              )}
+              <ChatPanel
+                messages={messages}
+                onSend={handleSend}
+                onAction={handleAction}
+                onEndSession={handleEndSession}
+                loading={chatLoading || sessionLoading}
+                mode={mode}
+              />
+            </>
           )}
         </div>
 

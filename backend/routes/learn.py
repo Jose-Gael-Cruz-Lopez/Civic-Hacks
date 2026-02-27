@@ -45,6 +45,12 @@ def _resolve_course(topic: str, user_id: str) -> str:
     )
     if concept_match:
         return concept_match[0].get("subject") or ""
+    # Is the topic itself a registered course name (even if it has no nodes yet)?
+    course_match = table("courses").select(
+        "course_name", filters={"user_id": f"eq.{user_id}", "course_name": f"eq.{topic}"}, limit=1
+    )
+    if course_match:
+        return topic
     return ""
 
 

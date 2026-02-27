@@ -5,7 +5,19 @@ from config import get_mastery_tier
 from db.connection import table
 
 
+def ensure_user_exists(user_id: str) -> None:
+    """Create a user row if one doesn't exist yet (prevents FK violations)."""
+    existing = table("users").select("id", filters={"id": f"eq.{user_id}"})
+    if not existing:
+        name = user_id.replace("user_", "").replace("_", " ").title()
+        try:
+            table("users").insert({"id": user_id, "name": name, "streak_count": 0})
+        except Exception:
+            pass  # already exists (race condition) — safe to ignore
+
+
 def get_graph(user_id: str) -> dict:
+    ensure_user_exists(user_id)
     nodes = table("graph_nodes").select("*", filters={"user_id": f"eq.{user_id}"})
 
     edges_raw = table("graph_edges").select("*", filters={"user_id": f"eq.{user_id}"})
@@ -148,8 +160,9 @@ def delete_course(user_id: str, course_name: str) -> dict:
 
     if node_ids:
         ids_str = ",".join(node_ids)
+        # Delete all tables that FK-reference graph_nodes before deleting nodes
         table("quiz_context").delete({"concept_node_id": f"in.({ids_str})"})
-        # Delete edges that touch any of these nodes (source or target)
+        table("quiz_attempts").delete({"concept_node_id": f"in.({ids_str})"})
         table("graph_edges").delete({"source_node_id": f"in.({ids_str})"})
         table("graph_edges").delete({"target_node_id": f"in.({ids_str})"})
         table("graph_nodes").delete(
